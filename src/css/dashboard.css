@@ -1,0 +1,127 @@
+/* Nền xám nhạt toàn bộ phần main */
+.mk-main {
+  background: #f5f5f7;
+  padding: 24px 0 0;
+}
+
+/* Container dashboard khớp header/footer (1200px) */
+.mk-dashboard {
+  max-width: 1200px;
+  margin: 0 auto 40px;
+  padding: 0 24px;
+}
+
+/* ===== HERO ===== */
+
+.mk-dashboard-hero {
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 32px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+  margin-bottom: 40px;
+}
+
+.mk-dashboard-hero-text {
+  max-width: 520px;
+}
+
+.mk-dashboard-hello {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.mk-dashboard-sub {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.mk-dashboard-hero-img-wrap {
+  flex-shrink: 0;
+}
+
+.mk-dashboard-hero-img-wrap img {
+  height: 220px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* ===== SECTION TITLE ===== */
+
+.mk-dashboard-system {
+  margin-top: 32px;
+}
+
+.mk-dashboard-section-title {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 24px;
+}
+
+/* ===== GRID CARDS ===== */
+
+.mk-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.mk-dashboard-card {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 24px 24px 20px;
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mk-dashboard-card-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: #fff5f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mk-dashboard-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.mk-dashboard-card-text {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ===== Responsive ===== */
+
+@media (max-width: 900px) {
+  .mk-dashboard {
+    padding: 0 16px;
+  }
+
+  .mk-dashboard-hero {
+    flex-direction: column-reverse;
+    text-align: left;
+    gap: 16px;
+  }
+
+  .mk-dashboard-hero-img-wrap img {
+    height: 180px;
+  }
+
+  .mk-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}

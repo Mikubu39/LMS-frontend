@@ -1,0 +1,203 @@
+/* Toàn bộ phần header nền trắng, full width */
+.mk-header-wrapper {
+  background: #ffffff;
+  border-bottom: 1px solid #eeeeee;
+}
+
+/* Thanh header ở giữa, cao giống mẫu */
+.mk-header {
+  max-width: 1200px;
+  margin: 0 auto;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+}
+
+/* Bên trái: logo + vạch + menu */
+.mk-header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.mk-header-logo img {
+  height: 32px;
+  display: block;
+  object-fit: contain;
+}
+
+/* Vạch xám mỏng sau logo */
+.mk-header-sep {
+  width: 1px;
+  height: 28px;
+  background: #e5e7eb;
+}
+
+/* Menu */
+.mk-header-nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.mk-header-link,
+.mk-header-link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #4b4b4b;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.mk-menu-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* Bên phải: icon search + bell + avatar */
+.mk-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+}
+
+.mk-icon-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.mk-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.mk-avatar-button {
+  padding: 0;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.mk-avatar-img {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+/* Dropdown user menu */
+.mk-user-menu {
+  position: absolute;
+  top: 56px;        /* ngay sát cạnh dưới header */
+  right: 0;
+  width: 260px;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+  z-index: 20;
+}
+
+.mk-user-menu-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f3f3;
+  gap: 12px;
+}
+
+.mk-user-menu-avatar {
+  position: relative;
+}
+
+.mk-user-menu-avatar .mk-avatar-img {
+  width: 36px;
+  height: 36px;
+}
+
+.mk-user-status-dot {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #22c55e;
+  border: 2px solid #ffffff;
+}
+
+.mk-user-menu-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mk-user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.mk-user-email {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.mk-user-menu-item {
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: #ffffff;
+  text-align: left;
+  font-size: 14px;
+  color: #111827;
+  cursor: pointer;
+}
+
+.mk-user-menu-item:hover {
+  background: #f9fafb;
+}
+
+.mk-user-menu-logout {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-top: 1px solid #f3f3f3;
+  color: #dc2626;
+}
+
+.mk-user-menu-logout-icon {
+  font-size: 14px;
+}
+.mk-login-button {
+  padding: 8px 20px;
+  border-radius: 999px;
+  border: 1px solid #dd673c;
+  background: #dd673c;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  margin-left: 16px;
+}
+
+.mk-login-button:hover {
+  opacity: 0.9;
+}

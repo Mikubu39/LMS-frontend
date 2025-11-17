@@ -1,0 +1,164 @@
+/* Nền cam gradient + padding tổng */
+.mk-footer {
+  background: radial-gradient(circle at top left, #fba76a 0%, #dd673c 45%, #c94b2c 100%);
+  color: #fff;
+  padding: 40px 0 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* Khung nội dung chính */
+.mk-footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+/* Logo nhỏ ở giữa */
+.mk-footer-logo-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.mk-footer-logo-wrap img {
+  height: 56px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* Title trắng, in hoa, đậm */
+.mk-footer-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+/* Gạch trắng mảnh */
+.mk-footer-divider {
+  margin: 20px auto 24px;
+  width: 90%;
+  max-width: 960px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* 3 cột */
+.mk-footer-content {
+  display: flex;
+  justify-content: space-between;
+  gap: 40px;
+  text-align: left;
+  padding: 0 40px 40px;
+}
+
+.mk-footer-col {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Heading cột */
+.mk-footer-heading {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+/* Hàng thông tin liên hệ */
+.mk-footer-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.mk-footer-icon-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mk-footer-row-text {
+  flex: 1;
+}
+
+.mk-footer-row-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.mk-footer-row-value {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+/* Cột social */
+.mk-footer-col-social {
+  align-items: flex-start;
+}
+
+.mk-footer-social-list {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.mk-footer-social-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #dd673c;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+/* Cột quote */
+.mk-footer-col-quote {
+  max-width: 380px;
+}
+
+.mk-footer-quote {
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.mk-footer-sign {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+}
+
+/* Thanh dưới cùng */
+.mk-footer-bottom {
+  margin-top: 8px;
+  padding: 8px 24px 10px;
+  background: rgba(0, 0, 0, 0.08);
+  text-align: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Responsive nhẹ cho màn nhỏ */
+@media (max-width: 900px) {
+  .mk-footer-content {
+    flex-direction: column;
+    padding: 0 16px 24px;
+    gap: 24px;
+  }
+
+  .mk-footer-col-quote {
+    max-width: 100%;
+  }
+}
