@@ -1,0 +1,122 @@
+.admin-layout {
+  min-height: 100vh;
+  background: #f5f7fb;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+.admin-sider {
+  background: #ffffff !important;
+  border-right: 1px solid #e5e9f2;
+}
+
+.admin-logo {
+  height: 64px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.admin-logo-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #2c7be5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  font-weight: 700;
+}
+
+.admin-logo-text {
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.admin-menu {
+  padding-top: 8px;
+}
+
+.admin-main {
+  background: #f5f7fb;
+}
+
+.admin-header {
+  height: 64px;
+  padding: 0 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e9f2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.admin-trigger {
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.admin-search {
+  position: relative;
+  width: 260px;
+  max-width: 100%;
+}
+
+.admin-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.6;
+}
+
+.admin-search-input {
+  width: 100%;
+  border-radius: 20px;
+  border: 1px solid #dde3f0;
+  padding: 6px 10px 6px 32px;
+  outline: none;
+  font-size: 13px;
+}
+
+.admin-search-input:focus {
+  border-color: #2c7be5;
+}
+
+.admin-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-header-icon {
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.admin-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.admin-user-name {
+  font-size: 13px;
+}
+
+.admin-content {
+  padding: 16px 24px 24px;
+  background: #f5f7fb;
+}

@@ -2,7 +2,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { selectUser, setUser } from "@/redux/authSlice";
-import http from "@/services/http";
+import {
+  getProfile,
+  updateProfile,
+  uploadAvatarAndUpdateProfile,
+  mapProfileToUser,
+} from "@/services/api/profileApi.jsx";
+
 import "../css/profile.css";
 
 // Icon camera / upload trên avatar (SVG 60x60)
@@ -79,13 +85,48 @@ export default function Profile() {
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState("");
   const [infoMessage, setInfoMessage] = useState("");
+  const [loadingProfile, setLoadingProfile] = useState(false);
 
   const fileInputRef = useRef(null);
 
-  // sync user -> form
+  // ====== Map lỗi backend -> message tiếng Việt gọn ======
+  const mapErrorMessage = (err) => {
+    const res = err?.response;
+    if (!res) return err?.message || "Đã xảy ra lỗi không xác định.";
+
+    const data = res.data;
+    if (typeof data?.message === "string") return data.message;
+    if (Array.isArray(data?.message)) return data.message.join(", ");
+    return err?.message || "Đã xảy ra lỗi trên máy chủ.";
+  };
+
+  // ========== GỌI API lấy profile KHI VÀO TRANG ==========
   useEffect(() => {
-    const full_name =
-      user?.name || user?.full_name || user?.full_name || "Nguyễn Ánh Viên";
+    const fetchProfile = async () => {
+      try {
+        setLoadingProfile(true);
+        setError("");
+        setInfoMessage("");
+
+        // Lấy profile từ backend, map sang user FE luôn (profileApi đảm nhiệm URL /students/profile)
+        const mappedUser = await getProfile({ mapped: true });
+
+        dispatch(setUser(mappedUser));
+        setAvatarUrl(mappedUser.avatar || DEFAULT_AVATAR);
+      } catch (err) {
+        console.error("Fetch profile error:", err);
+        setError(mapErrorMessage(err));
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+
+    fetchProfile();
+  }, [dispatch]);
+
+  // sync user -> form khi Redux đã có dữ liệu
+  useEffect(() => {
+    const full_name = user?.name || user?.full_name || "Nguyễn Ánh Viên";
 
     const parts = full_name.trim().split(" ").filter(Boolean);
     const fName = parts.length > 1 ? parts.slice(-1).join(" ") : full_name;
@@ -95,22 +136,11 @@ export default function Profile() {
     setFirstName(fName);
     setPhone(user?.phone || "");
     setEmail(user?.email || "");
-    setStudentCode(user?.studentCode || "PT2432");
+    setStudentCode(user?.studentCode || user?.user_id || "PT2432");
     setAvatarUrl(user?.avatar || DEFAULT_AVATAR);
     setDateOfBirth(user?.dateOfBirth || user?.dob || "");
     setDirty(false);
   }, [user]);
-
-  const mapErrorMessage = (err) => {
-    const res = err?.response;
-    if (!res) return err.message || "Đã xảy ra lỗi không xác định.";
-
-    const data = res.data;
-    // Nest thường trả { message: '...', statusCode } hoặc { message: ['a','b'], ... }
-    if (typeof data?.message === "string") return data.message;
-    if (Array.isArray(data?.message)) return data.message.join(", ");
-    return err.message || "Đã xảy ra lỗi trên máy chủ.";
-  };
 
   const handleClickAvatarButton = () => {
     if (uploading) return;
@@ -137,37 +167,10 @@ export default function Profile() {
     setUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file); // FileInterceptor('file')
+      // Dùng API helper: upload ảnh -> PUT /students/profile { avatar }
+      const { profile } = await uploadAvatarAndUpdateProfile(file);
 
-      const uploadRes = await http.post("/upload/image", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Accept: "application/json",
-        },
-      });
-
-      const { secure_url } = uploadRes.data || {};
-      if (!secure_url) {
-        throw new Error("Không nhận được secure_url từ server.");
-      }
-
-      // PUT /profile chỉ với avatar (đúng với DTO)
-      const profileRes = await http.put("/profile", {
-        avatar: secure_url,
-      });
-
-      const student = profileRes.data || {};
-      const newUser = {
-        ...(user || {}),
-        avatar: student.avatar ?? secure_url,
-        name: student.full_name || student.full_name || user?.name,
-        email: student.email ?? email ?? user?.email,
-        phone: student.phone ?? user?.phone,
-        studentCode: student.studentCode ?? user?.studentCode,
-        dateOfBirth: student.dateOfBirth ?? user?.dateOfBirth,
-      };
-
+      const newUser = mapProfileToUser(profile, user);
       dispatch(setUser(newUser));
       setAvatarUrl(newUser.avatar);
       setInfoMessage("Đã cập nhật ảnh đại diện.");
@@ -204,29 +207,18 @@ export default function Profile() {
         setPhone(cleanedPhone);
       }
 
-      // CHỈ gửi những field backend cho phép (full_name, phone, dateOfBirth,...)
+      // Gửi các field đúng với UpdateProfileDto (full_name, phone, email, dateOfBirth, ...)
       const payload = {
         full_name,
         phone: cleanedPhone || undefined,
+        email: email || undefined,
         dateOfBirth: dateOfBirth || undefined,
-        // KHÔNG gửi email nếu UpdateProfileDto chưa khai báo field này
       };
 
-      console.log("PUT /profile payload:", payload);
+      console.log("PUT /students/profile payload:", payload);
 
-      const profileRes = await http.put("/profile", payload);
-      const student = profileRes.data || {};
-
-      const newUser = {
-        ...(user || {}),
-        avatar: student.avatar ?? user?.avatar,
-        name: student.full_name || student.full_name || full_name,
-        // email hiện giờ chỉ update ở client, chưa lưu DB
-        email,
-        phone: student.phone ?? cleanedPhone,
-        studentCode: student.studentCode ?? user?.studentCode,
-        dateOfBirth: student.dateOfBirth ?? dateOfBirth,
-      };
+      const updatedProfile = await updateProfile(payload);
+      const newUser = mapProfileToUser(updatedProfile, user);
 
       dispatch(setUser(newUser));
       setDirty(false);
@@ -280,6 +272,11 @@ export default function Profile() {
             Mã sinh viên sẽ không thể chỉnh sửa. Thông tin sẽ được{" "}
             <b>tự động lưu</b> khi bạn rời khỏi ô nhập.
           </p>
+          {loadingProfile && (
+            <p className="pf-avatar-note" style={{ marginTop: 8 }}>
+              Đang tải thông tin hồ sơ...
+            </p>
+          )}
         </div>
 
         {/* --- Main content: avatar + form --- */}

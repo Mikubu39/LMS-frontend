@@ -13,16 +13,35 @@ function parseJwt(token) {
   }
 }
 
-/** Helper: chuẩn hóa danh sách role từ payload */
+/** Helper: chuẩn hóa danh sách role từ payload (luôn trả về chữ thường, map ROLE_ADMIN → admin,...) */
 function extractRoles(payload) {
   if (!payload) return ["student"];
 
   // một số backend trả "role", số khác trả "roles"
   const raw = payload.roles ?? payload.role;
 
-  if (Array.isArray(raw)) return raw;
-  if (typeof raw === "string" && raw.trim() !== "") return [raw.trim()];
-  return ["student"];
+  let roles = [];
+
+  if (Array.isArray(raw)) {
+    roles = raw;
+  } else if (typeof raw === "string" && raw.trim() !== "") {
+    roles = [raw];
+  } else {
+    roles = ["student"];
+  }
+
+  return roles
+    .map((r) => {
+      const lower = String(r).trim().toLowerCase();
+      if (!lower) return null;
+
+      if (lower.includes("admin")) return "admin";      // ADMIN, ROLE_ADMIN, superadmin...
+      if (lower.includes("teacher")) return "teacher";  // TEACHER, ROLE_TEACHER
+      if (lower.includes("student")) return "student";  // STUDENT, ROLE_STUDENT
+
+      return lower;
+    })
+    .filter(Boolean);
 }
 
 /** Khởi tạo state auth từ localStorage (nếu có token cũ + user đã lưu) */
@@ -37,7 +56,6 @@ function loadInitialAuthState() {
   const payload = parseJwt(token) || {};
   const roles = extractRoles(payload);
 
-  // user cơ bản lấy từ payload JWT
   const baseUser = {
     id: payload.sub || `u_${Date.now()}`,
     name: payload.name || (payload.email || "").split("@")[0] || "User",
@@ -48,18 +66,21 @@ function loadInitialAuthState() {
     online: true,
   };
 
-  // 🔹 Thử đọc user đã lưu chi tiết trong localStorage (sau khi update profile, upload avatar...)
   const storedRaw = localStorage.getItem("auth_user");
 
   if (storedRaw) {
     try {
       const storedUser = JSON.parse(storedRaw);
+
+      const finalRoles = extractRoles({
+        roles: storedUser.roles || baseUser.roles,
+      });
+
       return {
         user: {
           ...baseUser,
           ...storedUser,
-          // đảm bảo roles không bị mất
-          roles: storedUser.roles || baseUser.roles,
+          roles: finalRoles,
         },
         isAuthenticated: true,
       };
@@ -72,7 +93,6 @@ function loadInitialAuthState() {
     }
   }
 
-  // Không có auth_user => dùng baseUser từ token
   return {
     user: baseUser,
     isAuthenticated: true,
@@ -83,41 +103,62 @@ const authSlice = createSlice({
   name: "auth",
   initialState: loadInitialAuthState(),
   reducers: {
-    /** Set lại thông tin user sau khi đăng nhập / cập nhật profile */
     setUser(state, action) {
-      state.user = action.payload || null;
-      state.isAuthenticated = !!action.payload; // chỉ cần có user là đang đăng nhập
+      const incoming = action.payload || null;
 
-      if (typeof window !== "undefined") {
-        if (action.payload) {
-          // 🔹 Lưu user chi tiết xuống localStorage để F5 không mất
-          localStorage.setItem("auth_user", JSON.stringify(action.payload));
-        } else {
+      if (!incoming) {
+        state.user = null;
+        state.isAuthenticated = false;
+
+        if (typeof window !== "undefined") {
           localStorage.removeItem("auth_user");
         }
+        return;
+      }
+
+      const normalizedRoles = extractRoles({
+        roles: incoming.roles ?? incoming.role,
+      });
+
+      state.user = {
+        ...state.user,
+        ...incoming,
+        roles: normalizedRoles,
+      };
+      state.isAuthenticated = true;
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem(
+          "auth_user",
+          JSON.stringify({
+            ...incoming,
+            roles: normalizedRoles,
+          })
+        );
       }
     },
 
-    /** Đăng xuất: xoá user + token + cache user */
     logout(state) {
       state.user = null;
       state.isAuthenticated = false;
       if (typeof window !== "undefined") {
         localStorage.removeItem("access_token");
-        localStorage.removeItem("auth_user"); // 🔹 xoá luôn user cache
+        localStorage.removeItem("auth_user");
       }
     },
   },
 });
 
-// 🔹 actions
 export const { setUser, logout } = authSlice.actions;
 
-// 🔹 selectors
 export const selectUser = (state) => state.auth.user;
 export const selectIsAuthenticated = (state) => state.auth.isAuthenticated;
-export const selectIsAdmin = (state) =>
-  !!state.auth.user?.roles?.includes("admin"); // tách riêng luồng admin
 
-// 🔹 reducer mặc định cho store
+export const selectIsAdmin = (state) => {
+  const roles = state.auth.user?.roles || [];
+  return roles.map((r) => String(r).toLowerCase()).includes("admin");
+};
+
+export const selectRoles = (state) => state.auth.user?.roles || [];
+
 export default authSlice.reducer;

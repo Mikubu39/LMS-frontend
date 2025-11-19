@@ -4,57 +4,98 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Header from "./components/Header.jsx";
 import Footer from "./components/Footer.jsx";
 
+import Home from "./pages/Home.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Login from "./pages/auth/Login.jsx";
-import Profile from "./pages/Profile.jsx";       // 👈 THÊM: trang hồ sơ
-import RequireAuth from "./pages/auth/RequireAuth.jsx"; // guard đăng nhập
+import Profile from "./pages/Profile.jsx";
+import LessonPage from "./pages/LessonPage.jsx";
+import Posts from "./pages/Posts.jsx";
+import PostDetail from "./pages/PostDetail.jsx";
+import RequireAuth from "./pages/auth/RequireAuth.jsx";
+
+// ===== ADMIN PAGES =====
+import AdminLayout from "./layouts/AdminLayout.jsx";
+import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
+import CourseManagement from "./pages/admin/CourseManagement.jsx";
+import SessionManagement from "./pages/admin/SessionManagement.jsx"; // 👈 THÊM
+
+// ===== TEACHER (tạm) =====
+import TeacherDashboard from "./pages/teacher/TeacherDashboard.jsx";
 
 export default function App() {
   const location = useLocation();
 
-  // 👇 Chỉ ẩn Header/Footer ở trang login
+  // Ẩn Header/Footer ở trang login
   const isAuthPage = location.pathname.startsWith("/login");
+  // Ẩn Header/Footer ở domain admin (vì admin có layout riêng)
+  const isAdminDomain = location.pathname.startsWith("/admin");
 
-  const mainMinHeight = isAuthPage
-    ? "100vh"
-    : "calc(100vh - 64px - 160px)"; // trừ header + footer tương đối
+  const mainMinHeight =
+    isAuthPage || isAdminDomain
+      ? "100vh"
+      : "calc(100vh - 64px - 160px)"; // trừ header + footer tương đối
 
   return (
     <div className="app-shell">
-      {/* Chỉ hiển thị Header nếu KHÔNG phải trang login */}
-      {!isAuthPage && <Header />}
+      {/* Header chỉ xuất hiện ở student / teacher.
+          KHÔNG hiển thị ở /login và /admin */}
+      {!isAuthPage && !isAdminDomain && <Header />}
 
       {/* Thân trang: chứa các route */}
       <main
         style={{
           minHeight: mainMinHeight,
-          backgroundColor: isAuthPage ? "#ffffff" : "#f5f5f7",
-          paddingTop: isAuthPage ? 0 : 24,
+          backgroundColor: isAuthPage || isAdminDomain ? "#ffffff" : "#f5f5f7",
+          paddingTop: isAuthPage || isAdminDomain ? 0 : 24,
         }}
       >
         <Routes>
-          {/* Mặc định truy cập "/" thì vào trang đăng nhập */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-
-          {/* Trang đăng nhập */}
+          {/* ========= AUTH PUBLIC ========= */}
           <Route path="/login" element={<Login />} />
 
-          {/* Các route cần đăng nhập */}
+          {/* ========= STUDENT DOMAIN ========= */}
           <Route element={<RequireAuth />}>
-            {/* Trang dashboard sau khi đăng nhập */}
+            <Route path="/" element={<Home />} />
+            <Route path="/posts" element={<Posts />} />
+            <Route path="/posts/:postId" element={<PostDetail />} />
             <Route path="/dashboard" element={<Dashboard />} />
-
-            {/* 👇 Trang hồ sơ, đi từ "Hồ sơ của tôi" trong Header */}
             <Route path="/profile" element={<Profile />} />
+            <Route path="/lesson/:courseId" element={<LessonPage />} />
           </Route>
 
-          {/* Fallback: route không khớp -> về /login */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          {/* ========= TEACHER DOMAIN ========= */}
+          <Route element={<RequireAuth allowedRoles={["teacher", "admin"]} />}>
+            <Route
+              path="/teacher"
+              element={<Navigate to="/teacher/dashboard" replace />}
+            />
+            <Route
+              path="/teacher/dashboard"
+              element={<TeacherDashboard />}
+            />
+            {/* Sau này: /teacher/courses, /teacher/lessons,... */}
+          </Route>
+
+          {/* ========= ADMIN DOMAIN ========= */}
+          <Route element={<RequireAuth allowedRoles={["admin"]} />}>
+            <Route path="/admin/*" element={<AdminLayout />}>
+              {/* /admin */}
+              <Route index element={<AdminDashboard />} />
+              {/* /admin/courses */}
+              <Route path="courses" element={<CourseManagement />} />
+              {/* /admin/sessions */}
+              <Route path="sessions" element={<SessionManagement />} />
+              {/* Sau này thêm: /admin/classes, /admin/users,... */}
+            </Route>
+          </Route>
+
+          {/* Fallback: route lạ -> về trang chủ (student) */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
 
-      {/* Chỉ hiển thị Footer nếu KHÔNG phải trang login */}
-      {!isAuthPage && <Footer />}
+      {/* Footer chỉ xuất hiện ở student / teacher */}
+      {!isAuthPage && !isAdminDomain && <Footer />}
     </div>
   );
 }

@@ -1,37 +1,57 @@
-// ✅ src/services/api/authApi.js
+// ✅ src/services/api/authApi.jsx
 import http from "@/services/http";
+
+/* Helper: decode JWT để lấy payload (email, sub, role, ...) */
+function parseJwt(token) {
+  if (!token) return null;
+  try {
+    const base64 = token.split(".")[1];
+    const json = atob(base64.replace(/-/g, "+").replace(/_/g, "/"));
+    return JSON.parse(decodeURIComponent(escape(json)));
+  } catch (e) {
+    console.warn("Không parse được JWT:", e);
+    return null;
+  }
+}
 
 export const AuthApi = {
   /**
-   * 🔹 Đăng nhập người dùng
-   * Backend trả về: { access_token }
-   * @param {Object} body - { email, password }
-   * @returns {Promise<{ access_token: string }>}
+   * 🔹 Đăng nhập
+   * @param {{ email: string, password: string }} body
+   * @returns {Promise<{ access_token: string, refresh_token?: string, payload?: any }>}
    */
   async login(body) {
-    try {
-      const { data } = await http.post("/auth/login", body);
+    // Không try/catch ở đây -> để component (Login.jsx) bắt lỗi AxiosError
+    const { data } = await http.post("/auth/login", body);
+    // data = { access_token, refresh_token }
 
-      // ✅ Lưu token vào localStorage nếu có
-      if (data?.access_token) {
-        localStorage.setItem("access_token", data.access_token);
-      } else {
-        console.warn("⚠️ Backend không trả về access_token:", data);
-      }
+    const accessToken = data?.access_token;
+    const refreshToken = data?.refresh_token;
 
-      return data;
-    } catch (error) {
-      console.error("❌ Lỗi khi đăng nhập:", error);
-      // Ưu tiên hiển thị thông báo backend trả về nếu có
-      const msg = error?.response?.data?.message || "Đăng nhập thất bại";
-      throw new Error(msg);
+    if (!accessToken) {
+      console.warn("⚠️ Backend không trả về access_token:", data);
+      throw new Error("Không nhận được access_token từ server");
     }
+
+    // ✅ Lưu token vào localStorage
+    localStorage.setItem("access_token", accessToken);
+    if (refreshToken) {
+      localStorage.setItem("refresh_token", refreshToken);
+    }
+
+    // ✅ Decode payload để FE có thể dùng role/email nếu cần
+    const payload = parseJwt(accessToken) || {};
+
+    // Trả về giống backend + thêm payload cho tiện
+    return {
+      ...data,
+      payload,
+    };
   },
 
   /**
    * 🔹 Đăng ký người dùng mới
    * @param {Object} body - { full_name, email, password, phone? }
-   * @returns {Promise<object>}
    */
   async register(body) {
     try {
@@ -45,23 +65,8 @@ export const AuthApi = {
   },
 
   /**
-   * ⚠️ Backend KHÔNG có /auth/me nên tạm ẩn
-   * (Mở lại sau khi backend thêm endpoint)
-   */
-  // async getProfile() {
-  //   try {
-  //     const { data } = await http.get("/auth/me");
-  //     return data;
-  //   } catch (error) {
-  //     console.error("❌ Lỗi khi lấy thông tin user:", error);
-  //     throw error;
-  //   }
-  // },
-
-  /**
    * 🔹 Cập nhật hồ sơ người dùng
    * @param {Object} body - { full_name?, avatar?, phone? }
-   * @returns {Promise<object>}
    */
   async updateProfile(body) {
     try {
@@ -76,7 +81,7 @@ export const AuthApi = {
 
   /**
    * 🔹 Đổi mật khẩu
-   * @param {Object} body - { oldPassword, newPassword }
+   * @param {{ oldPassword: string, newPassword: string }} body
    */
   async changePassword(body) {
     try {
@@ -91,7 +96,7 @@ export const AuthApi = {
 
   /**
    * 🔹 Quên mật khẩu
-   * @param {Object} body - { email }
+   * @param {{ email: string }} body
    */
   async forgotPassword(body) {
     try {

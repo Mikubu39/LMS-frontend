@@ -1,0 +1,241 @@
+/* ===== WRAPPER ===== */
+.pd-page {
+  /* Nền trắng giống Figma, không dùng nền xám nữa */
+  background: #ffffff;
+  padding: 32px 0 64px;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* Khung nội dung: canh giữa, bề rộng ~ Figma */
+.pd-container {
+  width: 100%;
+  max-width: 1120px;                /* desktop 1440 nhìn sẽ rất sát mẫu */
+  margin: 0 auto;
+  padding: 0 24px 40px;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+/* ===== BREADCRUMB ===== */
+.pd-breadcrumb {
+  padding: 16px 0 8px;
+  font-size: 13px;
+  color: #8c8c8c;
+}
+
+.pd-breadcrumb-sep {
+  margin: 0 4px;
+}
+
+.pd-breadcrumb-current {
+  color: #262626;
+}
+
+/* ===== HEADER BÀI VIẾT ===== */
+.pd-header {
+  padding: 8px 0 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.pd-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.pd-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pd-tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: #fff4ed;
+  color: #dd673c;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pd-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #676767;
+}
+
+.pd-icon {
+  flex-shrink: 0;
+}
+
+/* ===== LAYOUT 2 CỘT ===== */
+/* Dùng grid để khoá đúng tỉ lệ cột giống Figma */
+.pd-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr); /* trái rộng, phải hẹp */
+  gap: 40px;                      /* khoảng cách 2 cột lớn hơn 1 chút */
+  padding: 24px 0 40px;
+  box-sizing: border-box;
+}
+
+/* CỘT BÀI VIẾT BÊN TRÁI */
+.pd-article {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #333333;
+}
+
+/* Sections */
+.pd-section {
+  margin-bottom: 24px;
+}
+
+.pd-section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.pd-section-subtitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 16px 0 8px;
+}
+
+.pd-list {
+  padding-left: 18px;
+  margin: 0 0 8px;
+}
+
+.pd-list li {
+  margin-bottom: 4px;
+}
+
+/* Ảnh trong bài viết chính */
+.pd-image-block {
+  margin: 16px 0 24px;
+}
+
+.pd-image-block img {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+}
+
+/* ===== SIDEBAR BÊN PHẢI ===== */
+.pd-sidebar {
+  padding-top: 8px;
+}
+
+.pd-sidebar-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.pd-sidebar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Card bên phải */
+.pd-sidebar-card {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+/* Khối ảnh card: gần giống tỷ lệ ở Figma (hơi ngang) */
+.pd-sidebar-thumb {
+  width: 100%;
+  height: 180px;         /* chỉnh con số này nếu muốn cao / thấp hơn */
+  overflow: hidden;
+}
+
+.pd-sidebar-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pd-sidebar-content {
+  padding: 12px 14px 14px;
+}
+
+.pd-sidebar-tag {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fff4ed;
+  color: #dd673c;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pd-sidebar-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 8px 0 4px;
+  color: #111827;
+}
+
+.pd-sidebar-card-excerpt {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.pd-sidebar-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 992px) {
+  .pd-container {
+    padding: 0 16px 32px;
+  }
+
+  .pd-layout {
+    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+    gap: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .pd-page {
+    padding: 16px 0 40px;
+  }
+
+  .pd-container {
+    padding: 0 16px 24px;
+  }
+
+  .pd-layout {
+    grid-template-columns: 1fr;    /* xếp 1 cột trên mobile */
+  }
+
+  .pd-sidebar {
+    padding-top: 0;
+  }
+
+  .pd-sidebar-thumb {
+    height: 200px;                /* cho mobile card cao hơn một chút */
+  }
+}

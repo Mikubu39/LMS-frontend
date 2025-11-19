@@ -1,0 +1,165 @@
+.posts-page {
+  background: #f5f5f5;
+}
+
+/* HERO cam giống các page khác */
+.posts-hero {
+  background: linear-gradient(135deg, #f48952 0%, #dd673c 55%, #c74b27 100%);
+  padding: 32px 0 48px;
+  color: #ffffff;
+}
+
+.posts-hero-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.posts-hero-breadcrumb {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.posts-hero-breadcrumb span {
+  font-weight: 600;
+}
+
+.posts-hero-title {
+  margin-top: 8px;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+/* khu vực trắng chứa grid bài viết */
+.posts-section {
+  padding: 32px 0 56px;
+}
+
+.posts-container {
+  max-width: 1200px;
+  margin: -48px auto 0; /* kéo card lên sát hero giống hình */
+  padding: 24px 16px 32px;
+  background: #ffffff;
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -6px 24px rgba(15, 23, 42, 0.04);
+}
+
+/* header row */
+.posts-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.posts-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.posts-section-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.posts-count-badge {
+  min-width: 26px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #fff4ee;
+  color: #dd673c;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* sort bên phải */
+.posts-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.posts-sort-label {
+  font-size: 12px;
+}
+
+.posts-sort-select {
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  padding: 4px 10px;
+  font-size: 12px;
+  background: #ffffff;
+}
+
+/* grid 3 cột */
+.posts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .posts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .posts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* pagination */
+.posts-pagination {
+  margin-top: 28px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.posts-page-btn {
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.posts-page-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.posts-page-numbers {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.posts-page-number {
+  min-width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.posts-page-number--active {
+  background: #dd673c;
+  border-color: #dd673c;
+  color: #ffffff;
+}
+
+.posts-page-dots {
+  color: #9ca3af;
+}

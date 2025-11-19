@@ -1,0 +1,71 @@
+.home-page {
+  background: #f5f5f5;
+}
+
+.home-courses-section {
+  padding: 40px 0 60px;
+  background: #f5f5f5;
+}
+
+.home-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 24px 32px;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+}
+
+.home-courses-title {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 24px;
+}
+
+.home-courses-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)); /* 3 cột */
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .home-courses-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .home-courses-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.home-pagination {
+  margin-top: 32px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.home-page-btn {
+  min-width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid #e3e3e3;
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.home-page-btn--active {
+  background: #dd673c;
+  color: #fff;
+  border-color: #dd673c;
+}
+
+.home-page-dots {
+  font-size: 13px;
+  color: #777;
+}
