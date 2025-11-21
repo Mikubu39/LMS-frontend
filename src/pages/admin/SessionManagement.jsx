@@ -19,7 +19,8 @@ import {
   DeleteOutlined,
 } from "@ant-design/icons";
 
-import { SessionApi } from "@/services/api/sessionApi.jsx";
+import { SessionApi } from "@/services/api/sessionApi";
+
 import { CourseApi } from "@/services/api/courseApi.jsx";
 
 const { Option } = Select;
@@ -38,23 +39,26 @@ export default function SessionManagement() {
 
   const [form] = Form.useForm();
 
-  // 🔹 Load danh sách khóa học (để chọn course cho session + filter)
+  // 🔹 Load danh sách khóa học (để chọn + filter)
   const fetchCourses = useCallback(async () => {
     try {
       setLoadingCourses(true);
-      const { courses, meta } = await CourseApi.getCourses({
-        page: 1,
-        limit: 100,
-      });
+
+      const res = await CourseApi.getCourses({ page: 1, limit: 100 });
+
+      // Hỗ trợ cả 2 dạng: { courses, meta } hoặc mảng đơn giản
+      const courseList = Array.isArray(res)
+        ? res
+        : res?.courses || res?.data || [];
 
       const mapped =
-        (courses || []).map((c) => ({
+        (courseList || []).map((c) => ({
           id: c.id,
           title: c.title,
         })) ?? [];
 
       setCourses(mapped);
-      console.log("📚 [SessionManagement] courses:", mapped, meta);
+      console.log("📚 [SessionManagement] courses:", mapped);
     } catch (error) {
       console.error("❌ Lỗi khi load courses:", error);
       message.error("Không tải được danh sách khóa học");
@@ -67,15 +71,15 @@ export default function SessionManagement() {
   const fetchSessions = useCallback(async () => {
     try {
       setLoading(true);
-      const list = await SessionApi.getSessions();
 
-      // Map về format table
+      const list = await SessionApi.getSessions(); // GET /sessions
+
       const mapped =
         (list || []).map((s, index) => ({
           key: s.id || index,
           id: s.id,
           title: s.title,
-          order: s.order ?? s.index ?? index + 1,
+          order: s.order ?? index + 1,
           courseId: s.course?.id || s.course_id || s.courseId,
           courseTitle: s.course?.title || s.courseTitle || "—",
           createdAt: s.createdAt,
@@ -97,7 +101,7 @@ export default function SessionManagement() {
     fetchSessions();
   }, [fetchCourses, fetchSessions]);
 
-  // 🔹 Lọc session theo course được chọn
+  // 🔹 Lọc session theo khóa học được chọn
   const filteredSessions = useMemo(() => {
     if (!selectedCourseId || selectedCourseId === "all") return sessions;
     return sessions.filter((s) => s.courseId === selectedCourseId);
@@ -108,9 +112,13 @@ export default function SessionManagement() {
     setIsEditing(false);
     setEditingId(null);
     form.resetFields();
+
+    const initial = { order: 1 };
     if (selectedCourseId && selectedCourseId !== "all") {
-      form.setFieldsValue({ courseId: selectedCourseId });
+      initial.courseId = selectedCourseId;
     }
+
+    form.setFieldsValue(initial);
     setModalVisible(true);
   };
 
@@ -136,7 +144,11 @@ export default function SessionManagement() {
 
       const body = {
         title: values.title,
-        order: values.order,
+        // đảm bảo order là số, đúng DTO @IsNumber()
+        order:
+          values.order !== undefined && values.order !== null
+            ? Number(values.order)
+            : undefined,
         courseId: values.courseId,
       };
 
@@ -153,7 +165,7 @@ export default function SessionManagement() {
       form.resetFields();
       fetchSessions();
     } catch (error) {
-      // validateFields error
+      // lỗi validate của antd
       if (error?.errorFields) return;
 
       console.error("❌ Lỗi khi lưu session:", error);

@@ -17,9 +17,11 @@ import RequireAuth from "./pages/auth/RequireAuth.jsx";
 import AdminLayout from "./layouts/AdminLayout.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import CourseManagement from "./pages/admin/CourseManagement.jsx";
-import SessionManagement from "./pages/admin/SessionManagement.jsx"; // 👈 THÊM
+import SessionManagement from "./pages/admin/SessionManagement.jsx";
+import LessonManagement from "./pages/admin/LessonManagement.jsx";
+import PostManagement from "./pages/admin/PostManagement.jsx"; // 👈 thêm
 
-// ===== TEACHER (tạm) =====
+// ===== TEACHER =====
 import TeacherDashboard from "./pages/teacher/TeacherDashboard.jsx";
 
 export default function App() {
@@ -27,7 +29,7 @@ export default function App() {
 
   // Ẩn Header/Footer ở trang login
   const isAuthPage = location.pathname.startsWith("/login");
-  // Ẩn Header/Footer ở domain admin (vì admin có layout riêng)
+  // Ẩn Header/Footer ở domain admin (admin có layout riêng)
   const isAdminDomain = location.pathname.startsWith("/admin");
 
   const mainMinHeight =
@@ -37,8 +39,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      {/* Header chỉ xuất hiện ở student / teacher.
-          KHÔNG hiển thị ở /login và /admin */}
+      {/* Header chỉ xuất hiện ở student / teacher, KHÔNG hiển thị ở /login và /admin */}
       {!isAuthPage && !isAdminDomain && <Header />}
 
       {/* Thân trang: chứa các route */}
@@ -69,11 +70,8 @@ export default function App() {
               path="/teacher"
               element={<Navigate to="/teacher/dashboard" replace />}
             />
-            <Route
-              path="/teacher/dashboard"
-              element={<TeacherDashboard />}
-            />
-            {/* Sau này: /teacher/courses, /teacher/lessons,... */}
+            <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
+            {/* sau này có thể thêm: /teacher/courses, /teacher/lessons,... */}
           </Route>
 
           {/* ========= ADMIN DOMAIN ========= */}
@@ -81,11 +79,38 @@ export default function App() {
             <Route path="/admin/*" element={<AdminLayout />}>
               {/* /admin */}
               <Route index element={<AdminDashboard />} />
+
               {/* /admin/courses */}
               <Route path="courses" element={<CourseManagement />} />
+
               {/* /admin/sessions */}
               <Route path="sessions" element={<SessionManagement />} />
-              {/* Sau này thêm: /admin/classes, /admin/users,... */}
+
+              {/* /admin/lessons (tất cả) */}
+              <Route path="lessons" element={<LessonManagement />} />
+
+              {/* /admin/lessons/video */}
+              <Route
+                path="lessons/video"
+                element={<LessonManagement defaultType="Video" />}
+              />
+
+              {/* /admin/lessons/text */}
+              <Route
+                path="lessons/text"
+                element={<LessonManagement defaultType="Text" />}
+              />
+
+              {/* /admin/lessons/quiz */}
+              <Route
+                path="lessons/quiz"
+                element={<LessonManagement defaultType="Quiz" />}
+              />
+
+              {/* /admin/posts */}
+              <Route path="posts" element={<PostManagement />} />
+
+              {/* sau này thêm: /admin/classes, /admin/users,... */}
             </Route>
           </Route>
 

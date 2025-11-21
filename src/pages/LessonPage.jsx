@@ -1,8 +1,12 @@
 // src/pages/LessonPage.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import "../css/lesson.css";
 import thumbImg from "../assets/course card.jpg";
+
+import { SessionApi } from "@/services/api/sessionApi";
+import { LessonApi } from "@/services/api/lessonApi";
+import { LessonVideoApi } from "@/services/api/lessonVideoApi";
 
 // ICON 3 GẠCH (menu)
 const ListIcon = () => (
@@ -29,45 +33,78 @@ const ListIcon = () => (
   </svg>
 );
 
-// fake data session/lesson cho UI
-const MOCK_SESSIONS = [
-  {
-    id: "session-1",
-    title: "Session 1: Vỡ lòng",
-    lessons: [
-      { id: "l1", title: "Form & Table", duration: "10:34" },
-      { id: "l2", title: "Layout Flexbox", duration: "15:20" },
-      { id: "l3", title: "Typography cơ bản", duration: "08:45" },
-    ],
-  },
-  {
-    id: "session-2",
-    title: "Session 2: HTML nâng cao",
-    lessons: [
-      { id: "l4", title: "Semantic HTML", duration: "12:10" },
-      { id: "l5", title: "SEO cơ bản", duration: "09:30" },
-    ],
-  },
-  {
-    id: "session-3",
-    title: "Session 3: Mini project",
-    lessons: [
-      { id: "l6", title: "Xây dựng landing page", duration: "18:05" },
-    ],
-  },
-];
+// ===== Helper normalize từ backend =====
+const normalizeSession = (raw) => {
+  if (!raw) return null;
+  return {
+    id: raw.id ?? raw.session_id ?? raw.sessionId,
+    title: raw.title ?? raw.name ?? "Session",
+    courseId:
+      raw.courseId ?? raw.course_id ?? raw.course?.id ?? raw.course?.courseId,
+    order: raw.order ?? raw.sessionOrder ?? 0,
+  };
+};
+
+const normalizeLesson = (raw) => {
+  if (!raw) return null;
+
+  const durationMinutes =
+    raw.duration ?? raw.durationMinutes ?? raw.time ?? raw.length ?? 0;
+
+  const durationText = raw.durationText
+    ? raw.durationText
+    : durationMinutes
+    ? `${durationMinutes} phút`
+    : "—";
+
+  return {
+    id: raw.id ?? raw.lesson_id ?? raw.lessonId,
+    title: raw.title ?? raw.name ?? "Bài học",
+    sessionId: raw.sessionId ?? raw.session_id ?? raw.session?.id,
+    durationMinutes,
+    durationText,
+  };
+};
+
+// Lấy thêm thông tin video cho 1 lesson (title/description/videoUrl/duration)
+const enrichLessonWithVideo = async (lesson) => {
+  if (!lesson?.id) return lesson;
+  try {
+    const video = await LessonVideoApi.getLessonVideoById(lesson.id);
+    console.log("[LessonPage] lesson-video for", lesson.id, ":", video);
+
+    const durationText =
+      video?.duration != null
+        ? `${video.duration} phút`
+        : lesson.durationText;
+
+    return {
+      ...lesson,
+      title: video.title ?? lesson.title,
+      description: video.description ?? "",
+      videoUrl: video.videoUrl ?? "",
+      durationMinutes: video.duration ?? lesson.durationMinutes,
+      durationText,
+    };
+  } catch (e) {
+    console.error("Lỗi load lesson-video:", e);
+    return {
+      ...lesson,
+      description: lesson.description ?? "",
+      videoUrl: lesson.videoUrl ?? "",
+    };
+  }
+};
 
 export default function LessonPage() {
   const navigate = useNavigate();
   const { courseId } = useParams();
 
-  // true = sidebar full; false = thu gọn (chỉ còn cột nhỏ với icon)
   const [sidebarOpen, setSidebarOpen] = useState(true);
-
-  // chỉ cho 1 session mở tại 1 thời điểm (accordion)
-  const [openSessionId, setOpenSessionId] = useState(
-    MOCK_SESSIONS[0]?.id || null
-  );
+  const [sessions, setSessions] = useState([]); // [{id,title,lessons:[]}]
+  const [openSessionId, setOpenSessionId] = useState(null);
+  const [currentLesson, setCurrentLesson] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const courseTitle = courseId
     ? courseId
@@ -75,12 +112,77 @@ export default function LessonPage() {
         .replace(/\b\w/g, (ch) => ch.toUpperCase())
     : "N1 Chill Class";
 
-  const currentLesson = MOCK_SESSIONS[0].lessons[0];
+  // ===== Load sessions + lessons từ API =====
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
 
-  const handleSelectLesson = (lessonId) => {
-    console.log("Go to lesson:", lessonId, "of course", courseId);
+        // Lấy toàn bộ sessions + lessons
+        const [rawSessions, rawLessons] = await Promise.all([
+          SessionApi.getSessions(),
+          LessonApi.getLessons(),
+        ]);
+
+        console.log("[LessonPage] sessions raw:", rawSessions);
+        console.log("[LessonPage] lessons raw:", rawLessons);
+
+        // Chuẩn hoá
+        const allSessions = (rawSessions || [])
+          .map(normalizeSession)
+          .filter(Boolean);
+
+        const allLessons = (rawLessons || [])
+          .map(normalizeLesson)
+          .filter(Boolean);
+
+        // Lọc sessions theo courseId (nếu có)
+        const filteredSessions = courseId
+          ? allSessions.filter(
+              (s) => String(s.courseId) === String(courseId)
+            )
+          : allSessions;
+
+        // Gắn lessons vào từng session
+        const grouped = filteredSessions
+          .map((session) => ({
+            ...session,
+            lessons: allLessons.filter(
+              (lesson) => String(lesson.sessionId) === String(session.id)
+            ),
+          }))
+          // sort theo order nếu có
+          .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        setSessions(grouped);
+
+        // chọn session + lesson đầu tiên làm current + lấy video
+        if (grouped.length > 0 && grouped[0].lessons.length > 0) {
+          setOpenSessionId(grouped[0].id);
+          const firstLesson = grouped[0].lessons[0];
+          const lessonWithVideo = await enrichLessonWithVideo(firstLesson);
+          setCurrentLesson(lessonWithVideo);
+        } else {
+          setOpenSessionId(grouped[0]?.id ?? null);
+          setCurrentLesson(null);
+        }
+      } catch (err) {
+        console.error("Lỗi load sessions/lessons:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [courseId]);
+
+  const handleSelectLesson = async (lesson) => {
+    console.log("Go to lesson:", lesson.id, "of course", courseId);
+    const lessonWithVideo = await enrichLessonWithVideo(lesson);
+    setCurrentLesson(lessonWithVideo);
+
     // sau này navigate thật:
-    // navigate(`/lesson/${courseId}?lesson=${lessonId}`);
+    // navigate(`/lesson/${courseId}?lesson=${lesson.id}`);
   };
 
   const handleToggleSession = (sessionId) => {
@@ -111,79 +213,75 @@ export default function LessonPage() {
         >
           {/* MAIN */}
           <main className="ls-main">
-            <div className="ls-video-card">
-              <div className="ls-video-thumb-wrapper">
-                <img
-                  src={thumbImg}
-                  alt={courseTitle}
-                  className="ls-video-thumb"
-                />
-                <button className="ls-video-play-btn">▶</button>
+            {loading ? (
+              <div className="ls-loading">Đang tải bài học...</div>
+            ) : !currentLesson ? (
+              <div className="ls-empty">
+                Chưa có bài học nào cho khóa <b>{courseTitle}</b>
               </div>
+            ) : (
+              <>
+                <div className="ls-video-card">
+                  <div className="ls-video-thumb-wrapper">
+                    <img
+                      src={thumbImg}
+                      alt={courseTitle}
+                      className="ls-video-thumb"
+                    />
+                    <button
+                      className="ls-video-play-btn"
+                      onClick={() => {
+                        if (currentLesson.videoUrl) {
+                          window.open(currentLesson.videoUrl, "_blank");
+                        }
+                      }}
+                    >
+                      ▶
+                    </button>
+                  </div>
 
-              <div className="ls-video-meta-bar">
-                <div className="ls-video-meta-left">
-                  <span className="ls-video-time">
-                    {currentLesson.duration}
-                  </span>
-                  <span className="ls-video-dot">•</span>
-                  <span className="ls-video-updated">
-                    Cập nhật 24 tháng 06 2023
-                  </span>
+                  <div className="ls-video-meta-bar">
+                    <div className="ls-video-meta-left">
+                      <span className="ls-video-time">
+                        {currentLesson.durationText}
+                      </span>
+                      <span className="ls-video-dot">•</span>
+                      <span className="ls-video-updated">
+                        Cập nhật 24 tháng 06 2023
+                      </span>
+                    </div>
+                    <div className="ls-video-meta-right">
+                      <span className="ls-video-view">1700 lượt học</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="ls-video-meta-right">
-                  <span className="ls-video-view">1700 lượt học</span>
+
+                <h1 className="ls-lesson-title">{currentLesson.title}</h1>
+
+                <div className="ls-lesson-submeta">
+                  <span className="ls-lesson-submeta-text">
+                    24 tháng 06 năm 2023
+                  </span>
+                  <span className="ls-lesson-dot">•</span>
+                  <span className="ls-lesson-submeta-text">{courseTitle}</span>
                 </div>
-              </div>
-            </div>
 
-            <h1 className="ls-lesson-title">{currentLesson.title}</h1>
+                {/* Mô tả */}
+                <section className="ls-section">
+                  <h2 className="ls-section-title">Mô tả</h2>
 
-            <div className="ls-lesson-submeta">
-              <span className="ls-lesson-submeta-text">
-                24 tháng 06 năm 2023
-              </span>
-              <span className="ls-lesson-dot">•</span>
-              <span className="ls-lesson-submeta-text">{courseTitle}</span>
-            </div>
+                  <div className="ls-section-body">
+                    <p>
+                      {currentLesson.description ||
+                        "Chưa có mô tả cho bài học này."}
+                    </p>
 
-            {/* Mô tả */}
-            <section className="ls-section">
-              <h2 className="ls-section-title">Mô tả</h2>
-
-              <div className="ls-section-body">
-                {/* ... nội dung mô tả giữ nguyên ... */}
-                <p>
-                  Lorem ipsum dolor sit amet consectetur. Ornare neque accumsan
-                  metus nulla ultricies massa ultrices rhoncus ultrices eros.
-                  Vestibulum varius adipiscing pellentesque amet phasellus
-                  mauris volutpat at tortor sodales sit. Sit morbi pellentesque
-                  adipiscing pellentesque habitant ullamcorper orci.
-                </p>
-                <p>
-                  Senectus netus lacus facilisis massa amet eget facilisis
-                  dignissim. Netus massa molestie turpis feugiat nullam euismod
-                  nisl.
-                </p>
-                <ul className="ls-bullet-list">
-                  <li>Semper netus netus lacus facilisis massa eget.</li>
-                  <li>
-                    Malesuada elit tincidunt at mi pharetra egestas sagittis.
-                  </li>
-                  <li>
-                    Facilisis fermentum suspendisse sagittis faucibus viverra
-                    fermentum in gravida mauris ut.
-                  </li>
-                </ul>
-                <p>
-                  Lorem ipsum dolor sit amet consectetur. Arcu et nisl aenean
-                  ultrices lacus ut. Vestibulum varius adipiscing pellentesque
-                  amet phasellus mauris volutpat at tortor sodales sit.
-                </p>
-
-                <button className="ls-see-more-btn">Xem thêm</button>
-              </div>
-            </section>
+                    {/* Nếu muốn vẫn giữ thêm đoạn lorem demo thì để dưới */}
+                    {/* <button className="ls-see-more-btn">Xem thêm</button> */}
+                  </div>
+                </section>
+              </>
+            )}
           </main>
 
           {/* SIDEBAR DANH SÁCH BÀI HỌC – THU GỌN */}
@@ -193,7 +291,6 @@ export default function LessonPage() {
             }
           >
             <div className="ls-sidebar-header">
-              {/* bấm vào cả cụm 3 gạch + chữ để thu gọn/mở */}
               <button
                 type="button"
                 className="ls-sidebar-toggle-btn"
@@ -208,57 +305,72 @@ export default function LessonPage() {
               </button>
             </div>
 
-            {/* body chỉ hiển thị khi không thu gọn */}
             {sidebarOpen && (
               <div className="ls-sidebar-body">
-                {MOCK_SESSIONS.map((session) => {
-                  const isSessionOpen = session.id === openSessionId;
+                {sessions.length === 0 ? (
+                  <div className="ls-sidebar-empty">
+                    Chưa có session / bài học nào
+                  </div>
+                ) : (
+                  sessions.map((session) => {
+                    const isSessionOpen = session.id === openSessionId;
 
-                  return (
-                    <div key={session.id} className="ls-session">
-                      <button
-                        type="button"
-                        className={
-                          "ls-session-title" +
-                          (isSessionOpen ? " ls-session-title--open" : "")
-                        }
-                        onClick={() => handleToggleSession(session.id)}
-                      >
-                        {session.title}
-                        <span className="ls-session-toggle-indicator">
-                          {isSessionOpen ? "−" : "+"}
-                        </span>
-                      </button>
+                    return (
+                      <div key={session.id} className="ls-session">
+                        <button
+                          type="button"
+                          className={
+                            "ls-session-title" +
+                            (isSessionOpen ? " ls-session-title--open" : "")
+                          }
+                          onClick={() => handleToggleSession(session.id)}
+                        >
+                          {session.title}
+                          <span className="ls-session-toggle-indicator">
+                            {isSessionOpen ? "−" : "+"}
+                          </span>
+                        </button>
 
-                      {isSessionOpen && (
-                        <div className="ls-lesson-list">
-                          {session.lessons.map((lesson) => {
-                            const isActive = lesson.id === currentLesson.id;
-                            return (
-                              <button
-                                key={lesson.id}
-                                className={
-                                  "ls-lesson-item" +
-                                  (isActive ? " ls-lesson-item--active" : "")
-                                }
-                                onClick={() => handleSelectLesson(lesson.id)}
-                              >
-                                <div className="ls-lesson-item-main">
-                                  <span className="ls-lesson-item-title">
-                                    {lesson.title}
-                                  </span>
-                                  <span className="ls-lesson-item-duration">
-                                    {lesson.duration}
-                                  </span>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                        {isSessionOpen && (
+                          <div className="ls-lesson-list">
+                            {session.lessons.length === 0 ? (
+                              <div className="ls-lesson-empty">
+                                Chưa có bài học
+                              </div>
+                            ) : (
+                              session.lessons.map((lesson) => {
+                                const isActive =
+                                  currentLesson &&
+                                  lesson.id === currentLesson.id;
+                                return (
+                                  <button
+                                    key={lesson.id}
+                                    className={
+                                      "ls-lesson-item" +
+                                      (isActive
+                                        ? " ls-lesson-item--active"
+                                        : "")
+                                    }
+                                    onClick={() => handleSelectLesson(lesson)}
+                                  >
+                                    <div className="ls-lesson-item-main">
+                                      <span className="ls-lesson-item-title">
+                                        {lesson.title}
+                                      </span>
+                                      <span className="ls-lesson-item-duration">
+                                        {lesson.durationText}
+                                      </span>
+                                    </div>
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             )}
           </aside>

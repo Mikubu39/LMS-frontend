@@ -1,39 +1,19 @@
-// ✅ src/services/api/sessionApi.jsx
+// ✅ src/services/api/sessionApi.js
 import http from "@/services/http";
 
-/**
- * Chuẩn hóa response list sessions:
- * - Nếu backend trả mảng: [session, ...]
- * - Hoặc { items: [...], meta: {...} } / { data: [...], meta: {...} }
- */
-function normalizeListResponse(data) {
-  let list = [];
-
-  if (Array.isArray(data)) {
-    list = data;
-  } else if (Array.isArray(data?.items)) {
-    list = data.items;
-  } else if (Array.isArray(data?.data)) {
-    list = data.data;
-  } else if (Array.isArray(data?.results)) {
-    list = data.results;
-  }
-
-  return list;
-}
-
+// Mọi chỗ khác sẽ import: import { SessionApi } from "@/services/api/sessionApi";
 export const SessionApi = {
   /**
-   * Lấy tất cả session
+   * Lấy toàn bộ sessions
    * GET /sessions
    */
   async getSessions() {
     const { data } = await http.get("/sessions");
-    return normalizeListResponse(data);
+    return data;
   },
 
   /**
-   * Lấy chi tiết 1 session
+   * Lấy chi tiết 1 session theo id
    * GET /sessions/:id
    */
   async getSessionById(id) {
@@ -42,9 +22,9 @@ export const SessionApi = {
   },
 
   /**
-   * Tạo session
+   * Tạo session mới
+   * body: { title: string, order?: number, courseId: string }
    * POST /sessions
-   * body dự kiến: { title, order, courseId }
    */
   async createSession(body) {
     const { data } = await http.post("/sessions", body);
@@ -61,11 +41,16 @@ export const SessionApi = {
   },
 
   /**
-   * Xóa session
+   * Xoá session
    * DELETE /sessions/:id
    */
   async deleteSession(id) {
     const { data } = await http.delete(`/sessions/${id}`);
     return data;
+  },
+
+  // ✅ Thêm alias cho chắc (nếu chỗ nào cũ còn dùng getAllSessions)
+  async getAllSessions() {
+    return this.getSessions();
   },
 };

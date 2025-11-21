@@ -1,8 +1,13 @@
 // src/pages/PostDetail.jsx
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import "../css/post-detail.css";
+
 import postImg1 from "../assets/post1.png";
 import postImg2 from "../assets/post2.png";
 import postImg3 from "../assets/post3.png";
+
+import { PostApi } from "@/services/api/postApi";
 
 /* ===== ICONS 20x20 ===== */
 const TimeIcon = () => (
@@ -41,43 +46,133 @@ const BookIcon = () => (
   </svg>
 );
 
-/* ===== DỮ LIỆU MOCK ===== */
-const relatedPosts = [
-  { id: 1, title: "Authentication & Authorization trong ReactJS", img: postImg1 },
-  { id: 2, title: "Authentication & Authorization trong ReactJS", img: postImg2 },
-  { id: 3, title: "Authentication & Authorization trong ReactJS", img: postImg3 },
-];
+// fallback ảnh cho related posts
+const fallbackImgs = [postImg1, postImg2, postImg3];
 
 export default function PostDetail() {
+  const { id } = useParams(); // route: /posts/:id
+  const navigate = useNavigate();
+
+  // post = undefined  -> chưa load
+  // post = null       -> 404 / không tìm thấy
+  // post = object     -> có dữ liệu
+  const [post, setPost] = useState(undefined);
+  const [relatedPosts, setRelatedPosts] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const formatDate = (value) => {
+    if (!value) return "—";
+    try {
+      return new Date(value).toLocaleDateString("vi-VN");
+    } catch {
+      return value;
+    }
+  };
+
+  // ===== LOAD BÀI VIẾT CHÍNH =====
+  useEffect(() => {
+    window.scrollTo(0, 0);
+
+    const loadPost = async () => {
+      if (!id) return;
+      try {
+        setLoading(true);
+        setPost(undefined);
+
+        const data = await PostApi.getPostById(id);
+        console.log("[PostDetail] getPostById →", data);
+
+        if (!data || Object.keys(data).length === 0) {
+          setPost(null);
+        } else {
+          setPost(data);
+        }
+      } catch (err) {
+        console.error(
+          "Lỗi load chi tiết bài viết:",
+          err?.response?.data || err
+        );
+
+        // 404 thì coi như không tìm thấy
+        if (err?.response?.status === 404) {
+          setPost(null);
+        } else {
+          setPost(null);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPost();
+  }, [id]);
+
+  // ===== LOAD BÀI VIẾT CÙNG CHỦ ĐỀ =====
+  useEffect(() => {
+    const loadRelated = async () => {
+      if (!post || !post.category) return;
+
+      try {
+        const { posts: list } = await PostApi.getPosts({
+          page: 1,
+          limit: 3,
+          search: post.category,
+        });
+
+        const filtered = (list || []).filter((p) => p.id !== post.id);
+        setRelatedPosts(filtered);
+      } catch (err) {
+        console.error("Lỗi load related posts:", err?.response?.data || err);
+      }
+    };
+
+    loadRelated();
+  }, [post]);
+
+  const handleBackHome = () => {
+    navigate("/");
+  };
+
+  const tag =
+    (post?.tags && post.tags[0]) || post?.category || "Bài viết";
+
+  const readTime = post?.readMins
+    ? `${post.readMins} phút đọc`
+    : "—";
+
   return (
     <div className="pd-page">
       <div className="pd-container">
         {/* BREADCRUMB */}
         <div className="pd-breadcrumb">
-          <span>Trang chủ</span>
+          <span className="pd-breadcrumb-link" onClick={handleBackHome}>
+            Trang chủ
+          </span>
           <span className="pd-breadcrumb-sep">/</span>
           <span>Bài viết</span>
           <span className="pd-breadcrumb-sep">/</span>
-          <span className="pd-breadcrumb-current">Chi tiết bài viết</span>
+          <span className="pd-breadcrumb-current">
+            {post?.title || "Chi tiết bài viết"}
+          </span>
         </div>
 
         {/* TIÊU ĐỀ + META */}
         <header className="pd-header">
           <h1 className="pd-title">
-            Authentication & Authorization trong ReactJS
+            {post?.title || "Authentication & Authorization trong ReactJS"}
           </h1>
 
           <div className="pd-meta-row">
-            <span className="pd-tag">Front-End</span>
+            <span className="pd-tag">{tag}</span>
 
             <span className="pd-meta-item">
               <TimeIcon />
-              <span>8 tháng trước</span>
+              <span>{formatDate(post?.publishedAt)}</span>
             </span>
 
             <span className="pd-meta-item">
               <BookIcon />
-              <span>10–15 phút đọc</span>
+              <span>{readTime}</span>
             </span>
           </div>
         </header>
@@ -86,62 +181,40 @@ export default function PostDetail() {
         <div className="pd-layout">
           {/* CỘT TRÁI: BÀI CHÍNH */}
           <article className="pd-article">
-            <section className="pd-section">
-              <h2 className="pd-section-title">
-                Ornare eu elementum felis porttitor nunc
-              </h2>
+            {loading || post === undefined ? (
+              <p>Đang tải bài viết...</p>
+            ) : null}
 
-              <div className="pd-image-block">
-                <img src={postImg1} alt="Authentication & Authorization" />
-              </div>
+            {!loading && post === null && (
+              <p>Không tìm thấy bài viết hoặc đã bị xoá.</p>
+            )}
 
-              <p>
-                Ornare eu elementum felis porttitor nunc tortor. Ornare neque
-                accumsan metus nulla ultricies maecenas rhoncus ultrices cras.
-                Vestibulum varius adipiscing…
-              </p>
-            </section>
+            {!loading && post && (
+              <>
+                {post.coverUrl && (
+                  <section className="pd-section">
+                    <div className="pd-image-block">
+                      <img src={post.coverUrl} alt={post.title} />
+                    </div>
+                  </section>
+                )}
 
-            <section className="pd-section">
-              <h3 className="pd-section-subtitle">
-                Lorem ipsum dolor sit amet consectetur
-              </h3>
-              <p>
-                Lorem ipsum dolor sit amet consectetur. Ornare neque accumsan
-                metus nulla ultricies massa ultrices rhoncus ultrices eros…
-              </p>
-
-              <ul className="pd-list">
-                <li>Tellus molestie leo gravida feugiat.</li>
-                <li>
-                  Sit porttitor viverra ut cursus. Vestibulum non et ullamcorper
-                  fermentum fringilla est.
-                </li>
-                <li>
-                  A nullam diam rhoncus pellentesque eleifend risus ut libero…
-                </li>
-              </ul>
-            </section>
-
-            <section className="pd-section">
-              <div className="pd-image-block">
-                <img src={postImg2} alt="React workshop" />
-              </div>
-              <p>
-                Vestibulum varius adipiscing pellentesque augue eget donec orci
-                amet…
-              </p>
-            </section>
-
-            <section className="pd-section">
-              <div className="pd-image-block">
-                <img src={postImg3} alt="Developer learning React" />
-              </div>
-              <p>
-                Lorem ipsum dolor sit amet consectetur. Ornare eu elementum
-                felis porttitor nunc tortor…
-              </p>
-            </section>
+                <section className="pd-section">
+                  {post.content ? (
+                    <div
+                      className="pd-content-html"
+                      dangerouslySetInnerHTML={{ __html: post.content }}
+                    />
+                  ) : (
+                    <p>
+                      Lorem ipsum dolor sit amet consectetur. Ornare neque
+                      accumsan metus nulla ultricies massa ultrices rhoncus
+                      ultrices eros...
+                    </p>
+                  )}
+                </section>
+              </>
+            )}
           </article>
 
           {/* CỘT PHẢI: BÀI VIẾT CÙNG CHỦ ĐỀ */}
@@ -149,34 +222,50 @@ export default function PostDetail() {
             <h3 className="pd-sidebar-title">Bài viết cùng chủ đề</h3>
 
             <div className="pd-sidebar-list">
-              {relatedPosts.map((p) => (
+              {relatedPosts.length === 0 && (
+                <p className="pd-sidebar-empty">Chưa có bài viết liên quan.</p>
+              )}
+
+              {relatedPosts.map((p, index) => (
                 <article key={p.id} className="pd-sidebar-card">
                   <div className="pd-sidebar-thumb">
-                    <img src={p.img} alt={p.title} />
+                    <img
+                      src={
+                        p.coverUrl ||
+                        fallbackImgs[index % fallbackImgs.length]
+                      }
+                      alt={p.title}
+                    />
                   </div>
 
                   <div className="pd-sidebar-content">
-                    <span className="pd-sidebar-tag">Front-End</span>
+                    <span className="pd-sidebar-tag">
+                      {(p.tags && p.tags[0]) || p.category || "Front-End"}
+                    </span>
 
                     <h4 className="pd-sidebar-card-title">{p.title}</h4>
 
                     <p className="pd-sidebar-card-excerpt">
-                      Chào bạn! Nếu bạn đã là học viên khóa Pro của Rikkei
-                      Academy, chắc hẳn bạn đã biết tới Dev Mode – giúp thúc
-                      đẩy…
+                      {p.excerpt ||
+                        (p.content
+                          ? p.content.replace(/<[^>]+>/g, "").slice(0, 100) +
+                            "..."
+                          : "Chào bạn! Đây là bài viết liên quan trong cùng chủ đề.")}
                     </p>
 
                     <div className="pd-sidebar-meta">
                       <span className="pd-meta-item">
                         <TimeIcon />
-                        <span>8 tháng trước</span>
+                        <span>{formatDate(p.publishedAt)}</span>
                       </span>
 
                       <span>•</span>
 
                       <span className="pd-meta-item">
                         <BookIcon />
-                        <span>10–15 phút đọc</span>
+                        <span>
+                          {p.readMins ? `${p.readMins} phút đọc` : "—"}
+                        </span>
                       </span>
                     </div>
                   </div>

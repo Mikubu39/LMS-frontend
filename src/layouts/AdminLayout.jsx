@@ -12,7 +12,6 @@ import {
   VideoCameraOutlined,
   QuestionCircleOutlined,
   EditOutlined,
-  LinkOutlined,
   DatabaseOutlined,
   OrderedListOutlined,
   FileTextOutlined,
@@ -23,7 +22,7 @@ import {
 } from "@ant-design/icons";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 
-import "../css/admin-layout.css"; // tạo file này
+import "../css/admin-layout.css";
 
 const { Header, Sider, Content } = Layout;
 
@@ -59,24 +58,24 @@ export default function AdminLayout() {
       label: "Quản lý lesson",
       children: [
         {
+          key: "/admin/lessons",
+          icon: <PlayCircleOutlined />,
+          label: "Tất cả lesson",
+        },
+        {
           key: "/admin/lessons/video",
           icon: <VideoCameraOutlined />,
-          label: "Lesson video",
+          label: "Lesson Video",
+        },
+        {
+          key: "/admin/lessons/text",
+          icon: <EditOutlined />,
+          label: "Lesson Text",
         },
         {
           key: "/admin/lessons/quiz",
           icon: <QuestionCircleOutlined />,
-          label: "Lesson quiz",
-        },
-        {
-          key: "/admin/lessons/essay",
-          icon: <EditOutlined />,
-          label: "Lesson essay",
-        },
-        {
-          key: "/admin/lessons/submit-link",
-          icon: <LinkOutlined />,
-          label: "Nộp link",
+          label: "Lesson Quiz",
         },
       ],
     },
@@ -123,11 +122,18 @@ export default function AdminLayout() {
     }
   };
 
-  // để menu highlight đúng item đang đứng
-  const selectedKey = menuItems
-    .flatMap((item) => (item.children ? item.children : item))
-    .map((i) => i.key)
-    .find((key) => location.pathname.startsWith(key)) || "/admin";
+  // 🔹 Tính selectedKey: ưu tiên key dài nhất khớp với pathname
+  const flatKeys = menuItems.flatMap((item) =>
+    item.children ? item.children.map((c) => c.key) : item.key
+  );
+
+  const matchedKey =
+    flatKeys
+      .filter((key) => typeof key === "string")
+      .filter((key) => location.pathname.startsWith(key))
+      .sort((a, b) => b.length - a.length)[0] || "/admin";
+
+  const selectedKey = matchedKey;
 
   return (
     <Layout className="admin-layout">
