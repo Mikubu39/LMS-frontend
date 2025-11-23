@@ -69,14 +69,16 @@ export async function getProfile(options = {}) {
 
 /**
  * Cập nhật thông tin profile
- * Backend (gợi ý): PATCH /users/profile/me
+ * Backend: PATCH /users/profile/me
  *
- * payload ví dụ (từ Profile.jsx):
+ * payload ví dụ:
  * {
- *   full_name,
- *   phone,
- *   email,
- *   dateOfBirth,
+ *   full_name: "Nguyễn Văn C",
+ *   phone: "0123456789",
+ *   address: "Đà Nẵng",
+ *   avatar: "https://example.com/new-avatar.jpg",
+ *   dateOfBirth: "1995-05-15",
+ *   gender: "female"
  * }
  */
 export async function updateProfile(payload) {
@@ -85,53 +87,26 @@ export async function updateProfile(payload) {
 }
 
 /**
- * Upload avatar + cập nhật profile
+ * Cập nhật avatar khi đã có sẵn URL ảnh (không upload file ở FE nữa)
  *
- * Logic:
- * 1. POST file lên endpoint upload (trả về URL ảnh)
- * 2. PATCH /users/profile/me { avatar: url }
- *
- * ✅ LƯU Ý: tuỳ backend của bạn, hãy chỉnh lại đường dẫn upload:
- *    - "/upload/avatar"   (ví dụ)
- *    - hoặc "/files/upload"
- *    - hoặc "/cloudinary/upload"
+ * avatarUrl: string (https://...)
  */
-export async function uploadAvatarAndUpdateProfile(file) {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  // 1) Upload file để lấy URL ảnh
-  const uploadRes = await http.post("/upload/avatar", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
-
-  // tuỳ backend, field có thể là: url | secure_url | avatar | ...
-  const data = uploadRes.data;
-  const imageUrl =
-    data?.url || data?.secure_url || data?.avatar || data?.imageUrl || data;
-
-  if (!imageUrl) {
-    throw new Error("Không lấy được URL ảnh từ API upload.");
-  }
-
-  // 2) Cập nhật profile với avatar mới
-  const profileRes = await http.patch("/users/profile/me", {
-    avatar: imageUrl,
+export async function updateAvatarUrl(avatarUrl) {
+  const res = await http.patch("/users/profile/me", {
+    avatar: avatarUrl,
   });
 
   return {
-    profile: profileRes.data, // object profile mới
-    avatarUrl: imageUrl,      // URL ảnh để dùng ngay nếu cần
+    profile: res.data, // profile mới
+    avatarUrl,         // URL avatar để dùng ngay
   };
 }
 
-// Gộp lại cho tiện import kiểu:
+// Gộp lại cho tiện import:
 // import { ProfileApi } from "@/services/api/profileApi.jsx";
 export const ProfileApi = {
   getProfile,
   updateProfile,
-  uploadAvatarAndUpdateProfile,
+  updateAvatarUrl,
   mapProfileToUser,
 };

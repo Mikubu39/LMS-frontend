@@ -5,9 +5,9 @@ import { selectUser, setUser } from "@/redux/authSlice";
 import {
   getProfile,
   updateProfile,
-  uploadAvatarAndUpdateProfile,
   mapProfileToUser,
 } from "@/services/api/profileApi.jsx";
+import { uploadImage } from "@/services/api/uploadApi.jsx"; // 👈 THÊM: dùng API upload
 
 import "../css/profile.css";
 
@@ -108,7 +108,6 @@ export default function Profile() {
         setError("");
         setInfoMessage("");
 
-        // Lấy profile từ backend, map sang user FE luôn (profileApi đảm nhiệm URL /students/profile)
         const mappedUser = await getProfile({ mapped: true });
 
         dispatch(setUser(mappedUser));
@@ -148,13 +147,48 @@ export default function Profile() {
   };
 
   // ========== Upload avatar ==========
+//   const handleFileChange = async (e) => {
+//     const file = e.target.files?.[0];
+//     if (!file) return;
+//     e.target.value = "";
+
+//     if (!file.type.startsWith("image/")) {
+//       setError("File phải là hình ảnh (PNG/JPG).");
+//       return;
+//     }
+//     if (file.size > 5 * 1024 * 1024) {
+//       setError("Kích thước ảnh tối đa 5MB.");
+//       return;
+//     }
+
+//     setError("");
+//     setInfoMessage("");
+//     setUploading(true);
+
+//     try {
+//       // Dùng API helper: upload ảnh -> PUT /students/profile { avatar }
+//       const { profile } = await uploadAvatarAndUpdateProfile(file);
+
+//       const newUser = mapProfileToUser(profile, user);
+//       dispatch(setUser(newUser));
+//       setAvatarUrl(newUser.avatar);
+//       setInfoMessage("Đã cập nhật ảnh đại diện.");
+//     } catch (err) {
+//       console.error("Upload avatar error:", err);
+//       setError(mapErrorMessage(err));
+//     } finally {
+//       setUploading(false);
+//     }
+//   };
+
+  // ✅ BẢN MỚI: upload lên /upload/image rồi PATCH /users/profile/me
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = "";
 
     if (!file.type.startsWith("image/")) {
-      setError("File phải là hình ảnh (PNG/JPG).");
+      setError("File phải là hình ảnh (PNG/JPG/WebP).");
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
@@ -167,12 +201,26 @@ export default function Profile() {
     setUploading(true);
 
     try {
-      // Dùng API helper: upload ảnh -> PUT /students/profile { avatar }
-      const { profile } = await uploadAvatarAndUpdateProfile(file);
+      // 1) Upload file lên backend: POST /upload/image (field: "file")
+      const uploadRes = await uploadImage(file);
+      console.log("[Profile] uploadRes:", uploadRes);
 
-      const newUser = mapProfileToUser(profile, user);
+      const imageUrl =
+        uploadRes?.secure_url ||
+        uploadRes?.url ||
+        uploadRes?.avatar ||
+        uploadRes?.imageUrl;
+
+      if (!imageUrl) {
+        throw new Error("Không lấy được URL ảnh sau khi upload.");
+      }
+
+      // 2) Cập nhật profile với avatar mới
+      const updatedProfile = await updateProfile({ avatar: imageUrl });
+      const newUser = mapProfileToUser(updatedProfile, user);
+
       dispatch(setUser(newUser));
-      setAvatarUrl(newUser.avatar);
+      setAvatarUrl(newUser.avatar || imageUrl);
       setInfoMessage("Đã cập nhật ảnh đại diện.");
     } catch (err) {
       console.error("Upload avatar error:", err);
@@ -215,7 +263,7 @@ export default function Profile() {
         dateOfBirth: dateOfBirth || undefined,
       };
 
-      console.log("PUT /students/profile payload:", payload);
+      console.log("PATCH /users/profile/me payload:", payload);
 
       const updatedProfile = await updateProfile(payload);
       const newUser = mapProfileToUser(updatedProfile, user);
@@ -300,14 +348,14 @@ export default function Profile() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/png, image/jpeg"
+                accept="image/png, image/jpeg, image/webp"
                 style={{ display: "none" }}
                 onChange={handleFileChange}
               />
             </div>
 
             <p className="pf-avatar-note">
-              Kích thước ảnh nhỏ nhất: 200 x 200px, định dạng PNG hoặc JPG.
+              Kích thước ảnh nhỏ nhất: 200 x 200px, định dạng PNG/JPG/WebP.
               <br />
               {uploading && <span>Đang tải ảnh lên...</span>}
             </p>

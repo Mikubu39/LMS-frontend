@@ -17,9 +17,8 @@ import RequireAuth from "./pages/auth/RequireAuth.jsx";
 import AdminLayout from "./layouts/AdminLayout.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import CourseManagement from "./pages/admin/CourseManagement.jsx";
-import SessionManagement from "./pages/admin/SessionManagement.jsx";
-import LessonManagement from "./pages/admin/LessonManagement.jsx";
-import PostManagement from "./pages/admin/PostManagement.jsx"; // 👈 thêm
+import CourseManager from "./pages/admin/CourseManager.jsx";      // 👈 trang quản lý 1 khoá
+import PostManagement from "./pages/admin/PostManagement.jsx";   // 👈 quản lý bài viết
 
 // ===== TEACHER =====
 import TeacherDashboard from "./pages/teacher/TeacherDashboard.jsx";
@@ -80,34 +79,16 @@ export default function App() {
               {/* /admin */}
               <Route index element={<AdminDashboard />} />
 
-              {/* /admin/courses */}
+              {/* /admin/courses - danh sách khoá */}
               <Route path="courses" element={<CourseManagement />} />
 
-              {/* /admin/sessions */}
-              <Route path="sessions" element={<SessionManagement />} />
-
-              {/* /admin/lessons (tất cả) */}
-              <Route path="lessons" element={<LessonManagement />} />
-
-              {/* /admin/lessons/video */}
+              {/* /admin/courses/:courseId/manage - quản lý khoá (giống ảnh bạn gửi) */}
               <Route
-                path="lessons/video"
-                element={<LessonManagement defaultType="Video" />}
+                path="courses/:courseId/manage"
+                element={<CourseManager />}
               />
 
-              {/* /admin/lessons/text */}
-              <Route
-                path="lessons/text"
-                element={<LessonManagement defaultType="Text" />}
-              />
-
-              {/* /admin/lessons/quiz */}
-              <Route
-                path="lessons/quiz"
-                element={<LessonManagement defaultType="Quiz" />}
-              />
-
-              {/* /admin/posts */}
+              {/* /admin/posts - quản lý bài viết */}
               <Route path="posts" element={<PostManagement />} />
 
               {/* sau này thêm: /admin/classes, /admin/users,... */}

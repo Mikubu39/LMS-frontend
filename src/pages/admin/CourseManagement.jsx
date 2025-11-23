@@ -18,6 +18,7 @@ import {
   EditOutlined,
   DeleteOutlined,
 } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";          // 👈 THÊM
 import { CourseApi } from "@/services/api/courseApi.jsx";
 
 const { Option } = Select;
@@ -37,6 +38,8 @@ export default function CourseManagement() {
   const [editingId, setEditingId] = useState(null);
   const [form] = Form.useForm();
 
+  const navigate = useNavigate();                       // 👈 THÊM
+
   // 🔹 Lấy danh sách khóa học từ API
   const fetchCourses = useCallback(
     async (page = 1, limit = 10) => {
@@ -44,22 +47,19 @@ export default function CourseManagement() {
         setLoading(true);
         const { courses, meta } = await CourseApi.getCourses({ page, limit });
 
-        // Map dữ liệu về format table
         const mapped = (courses || []).map((c, index) => ({
           key: c.id || index,
           id: c.id,
-          code: c.code || (c.id ? c.id.slice(0, 8).toUpperCase() : `C${index+1}`),
+          code:
+            c.code || (c.id ? c.id.slice(0, 8).toUpperCase() : `C${index + 1}`),
           name: c.title,
           teacher:
             c.instructor?.full_name ||
             c.instructor?.name ||
             c.instructorName ||
             "—",
-          status: c.status || "Đang mở", // tạm fix, backend sau này có trường status thì map lại
-          sessionCount:
-            c.sessions?.length ??
-            c.sessionCount ??
-            0,
+          status: c.status || "Đang mở",
+          sessionCount: c.sessions?.length ?? c.sessionCount ?? 0,
           raw: c,
         }));
 
@@ -84,7 +84,6 @@ export default function CourseManagement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 🔹 Submit form thêm / sửa
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
@@ -97,11 +96,9 @@ export default function CourseManagement() {
       };
 
       if (isEditing && editingId) {
-        // Update
         await CourseApi.updateCourse(editingId, body);
         message.success("Cập nhật khóa học thành công");
       } else {
-        // Create
         await CourseApi.createCourse(body);
         message.success("Tạo khóa học thành công");
       }
@@ -111,7 +108,6 @@ export default function CourseManagement() {
       form.resetFields();
       fetchCourses(pagination.current, pagination.pageSize);
     } catch (error) {
-      // Nếu error từ validateFields thì bỏ qua
       if (error?.errorFields) return;
 
       console.error("❌ Lỗi khi lưu khóa học:", error);
@@ -124,7 +120,6 @@ export default function CourseManagement() {
     }
   };
 
-  // 🔹 Xóa khóa học
   const handleDelete = async (id) => {
     try {
       await CourseApi.deleteCourse(id);
@@ -141,7 +136,6 @@ export default function CourseManagement() {
     }
   };
 
-  // 🔹 Mở modal thêm mới
   const openCreateModal = () => {
     setIsEditing(false);
     setEditingId(null);
@@ -149,7 +143,6 @@ export default function CourseManagement() {
     setModalVisible(true);
   };
 
-  // 🔹 Mở modal sửa
   const openEditModal = (record) => {
     const c = record.raw;
     setIsEditing(true);
@@ -193,6 +186,19 @@ export default function CourseManagement() {
       title: "Số session",
       dataIndex: "sessionCount",
       key: "sessionCount",
+    },
+    {
+      title: "Quản lý",
+      key: "manage",
+      render: (_, record) => (
+        <Button
+          size="small"
+          type="primary"
+          onClick={() => navigate(`/admin/courses/${record.id}/manage`)}
+        >
+          Quản lý
+        </Button>
+      ),
     },
     {
       title: "Hành động",
@@ -254,7 +260,7 @@ export default function CourseManagement() {
         }}
         okText={isEditing ? "Cập nhật" : "Tạo mới"}
         cancelText="Hủy"
-        destroyOnClose
+        destroyOnHidden   // 👈 dùng prop mới để khỏi warning
       >
         <Form form={form} layout="vertical">
           <Form.Item
@@ -292,7 +298,9 @@ export default function CourseManagement() {
           <Form.Item
             label="Thumbnail URL"
             name="thumbnail"
-            rules={[{ required: true, message: "Vui lòng nhập URL thumbnail" }]}
+            rules={[
+              { required: true, message: "Vui lòng nhập URL thumbnail" },
+            ]}
           >
             <Input placeholder="https://example.com/thumbnail.jpg" />
           </Form.Item>
