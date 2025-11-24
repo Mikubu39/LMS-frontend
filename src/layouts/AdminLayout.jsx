@@ -7,11 +7,6 @@ import {
   DashboardOutlined,
   ApartmentOutlined,
   BookOutlined,
-  ScheduleOutlined,
-  PlayCircleOutlined,
-  VideoCameraOutlined,
-  QuestionCircleOutlined,
-  EditOutlined,
   DatabaseOutlined,
   OrderedListOutlined,
   FileTextOutlined,
@@ -19,7 +14,7 @@ import {
   SearchOutlined,
   BellOutlined,
   UserOutlined,
-} from "@ant-design/icons";
+} from "@ant-design/icons"; // Đã xoá bớt các icon thừa (Schedule, PlayCircle...)
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 
 import "../css/admin-layout.css";
@@ -45,49 +40,21 @@ export default function AdminLayout() {
     {
       key: "/admin/courses",
       icon: <BookOutlined />,
-      label: "Quản lý khóa học",
+      label: "Quản lý khóa học", 
+      // 💡 Workflow chuẩn: Vào đây -> Chọn khóa -> Sửa nội dung (Session/Lesson)
     },
-    {
-      key: "/admin/sessions",
-      icon: <ScheduleOutlined />,
-      label: "Quản lý session",
-    },
-    {
-      key: "lessons-group",
-      icon: <PlayCircleOutlined />,
-      label: "Quản lý lesson",
-      children: [
-        {
-          key: "/admin/lessons",
-          icon: <PlayCircleOutlined />,
-          label: "Tất cả lesson",
-        },
-        {
-          key: "/admin/lessons/video",
-          icon: <VideoCameraOutlined />,
-          label: "Lesson Video",
-        },
-        {
-          key: "/admin/lessons/text",
-          icon: <EditOutlined />,
-          label: "Lesson Text",
-        },
-        {
-          key: "/admin/lessons/quiz",
-          icon: <QuestionCircleOutlined />,
-          label: "Lesson Quiz",
-        },
-      ],
-    },
+    
+    // ❌ ĐÃ XOÁ: Quản lý Session & Lesson (Vì đã quản lý bên trong Course)
+
     {
       key: "question-banks-group",
       icon: <DatabaseOutlined />,
-      label: "Ngân hàng câu hỏi",
+      label: "Quản lý bộ đề",
       children: [
         {
           key: "/admin/question-banks",
           icon: <DatabaseOutlined />,
-          label: "Quản lý ngân hàng",
+          label: "Quản lý quiz",
         },
         {
           key: "/admin/questions",
@@ -117,6 +84,8 @@ export default function AdminLayout() {
   };
 
   const handleMenuClick = (info) => {
+    // Chỉ navigate nếu key bắt đầu bằng /admin 
+    // (Tránh lỗi nếu click vào group key như "question-banks-group")
     if (info.key.startsWith("/admin")) {
       navigate(info.key);
     }
@@ -133,7 +102,9 @@ export default function AdminLayout() {
       .filter((key) => location.pathname.startsWith(key))
       .sort((a, b) => b.length - a.length)[0] || "/admin";
 
-  const selectedKey = matchedKey;
+  // Fix nhỏ: Nếu đang ở trang CourseManager (/admin/courses/quan-ly/...), 
+  // vẫn giữ active menu "Quản lý khóa học"
+  const selectedKey = location.pathname.includes('/courses') ? '/admin/courses' : matchedKey;
 
   return (
     <Layout className="admin-layout">
@@ -146,6 +117,7 @@ export default function AdminLayout() {
         className="admin-sider"
       >
         <div className="admin-logo">
+          {/* Logo chữ cái hoặc ảnh */}
           <div className="admin-logo-icon">L</div>
           {!collapsed && <span className="admin-logo-text">LMS Admin</span>}
         </div>
@@ -153,7 +125,7 @@ export default function AdminLayout() {
         <Menu
           mode="inline"
           selectedKeys={[selectedKey]}
-          defaultOpenKeys={["lessons-group", "question-banks-group"]}
+          defaultOpenKeys={["question-banks-group"]} // Chỉ mở sẵn nhóm này
           items={menuItems}
           onClick={handleMenuClick}
           className="admin-menu"
@@ -175,7 +147,7 @@ export default function AdminLayout() {
               <SearchOutlined className="admin-search-icon" />
               <input
                 className="admin-search-input"
-                placeholder="Tìm kiếm lớp, khóa, user..."
+                placeholder="Tìm kiếm..."
               />
             </div>
           </div>

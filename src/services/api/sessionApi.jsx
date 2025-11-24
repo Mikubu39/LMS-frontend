@@ -1,7 +1,6 @@
-// ✅ src/services/api/sessionApi.js
+// ✅ src/services/api/sessionApi.jsx
 import http from "@/services/http";
 
-// Mọi chỗ khác sẽ import: import { SessionApi } from "@/services/api/sessionApi";
 export const SessionApi = {
   /**
    * Lấy toàn bộ sessions
@@ -10,6 +9,24 @@ export const SessionApi = {
   async getSessions() {
     const { data } = await http.get("/sessions");
     return data;
+  },
+
+  /**
+   * 👇 QUAN TRỌNG: Lấy sessions theo courseId
+   * Do backend api findAll trả về tất cả, ta cần filter phía client
+   * hoặc gửi params nếu backend hỗ trợ (ở đây ta filter thủ công cho chắc chắn)
+   */
+  async getSessionsByCourse(courseId) {
+    const { data } = await http.get("/sessions");
+    
+    if (Array.isArray(data)) {
+      // 👇 Logic lọc an toàn: Kiểm tra cả 2 trường hợp
+      return data.filter(s => 
+        (s.courseId === courseId) ||        // Trường hợp 1: Có cột courseId
+        (s.course && s.course.id === courseId) // Trường hợp 2: Có quan hệ course
+      );
+    }
+    return [];
   },
 
   /**
@@ -49,7 +66,7 @@ export const SessionApi = {
     return data;
   },
 
-  // ✅ Thêm alias cho chắc (nếu chỗ nào cũ còn dùng getAllSessions)
+  // Alias
   async getAllSessions() {
     return this.getSessions();
   },

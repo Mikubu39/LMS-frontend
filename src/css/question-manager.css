@@ -1,0 +1,227 @@
+/* ✅ src/css/question-manager.css */
+
+/* --- LAYOUT TỔNG --- */
+.qm-page-container {
+  min-height: 100vh;
+  background-color: #f5f5f5; /* Nền xám nhạt */
+  padding: 16px 24px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* --- HEADER AREA --- */
+.qm-breadcrumb {
+  margin-bottom: 16px;
+  color: #666;
+  font-size: 14px;
+}
+
+.qm-top-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.qm-tabs-group {
+  display: flex;
+  gap: 8px;
+}
+
+.qm-tab-btn {
+  border: 1px solid #d9d9d9;
+  background: white;
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #333;
+  transition: all 0.2s;
+}
+
+.qm-tab-btn.active {
+  background: #1890ff;
+  color: white;
+  border-color: #1890ff;
+}
+
+/* --- MAIN BODY LAYOUT --- */
+.qm-body-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+/* --- LEFT SIDEBAR (FILTER) --- */
+.qm-sidebar-filter {
+  width: 250px;
+  background: white;
+  padding: 16px;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  flex-shrink: 0;
+}
+
+.qm-filter-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #333;
+}
+
+.qm-sidebar-btn-primary {
+  width: 100%;
+  margin-bottom: 10px;
+  height: 40px;
+  font-weight: 500;
+}
+
+.qm-sidebar-btn-excel {
+  width: 100%;
+  margin-bottom: 20px;
+  border: 1px solid #d9d9d9;
+  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 36px;
+}
+
+.qm-filter-divider {
+  height: 1px;
+  background: #f0f0f0;
+  margin: 10px 0 20px 0;
+}
+
+.qm-filter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.qm-filter-item {
+  text-align: left;
+  padding: 8px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: white;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.qm-filter-item:hover {
+  border-color: #40a9ff;
+  color: #40a9ff;
+}
+
+.qm-filter-item.active {
+  background: #1890ff;
+  color: white;
+  border-color: #1890ff;
+}
+
+/* --- RIGHT CONTENT (TABLE) --- */
+.qm-content-area {
+  flex: 1;
+  background: white;
+  padding: 20px;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.qm-content-header {
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+
+.qm-search-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.qm-search-input {
+  flex: 1;
+}
+
+/* Custom Table Styles to match image */
+.qm-question-box {
+  border: 1px solid #d9d9d9;
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: #fff;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  color: #333;
+}
+
+.qm-media-placeholder {
+  width: 40px;
+  height: 40px;
+  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: #999;
+}
+
+.qm-tag-type {
+  background: #a05445; /* Màu nâu đỏ giống ảnh */
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.qm-tag-blue {
+  background: #1890ff;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.qm-action-btn {
+  border: 1px solid #d9d9d9;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  background: white;
+  transition: all 0.2s;
+}
+
+.qm-action-btn.edit {
+  color: #1890ff;
+  border-color: #bae7ff;
+}
+.qm-action-btn.delete {
+  color: #ff4d4f;
+  border-color: #ffccc7;
+}
+
+.qm-action-group {
+  display: flex;
+  gap: 8px;
+}
+.qm-sidebar-filter .ant-upload-wrapper,
+.qm-sidebar-filter .ant-upload-select {
+  width: 100% !important;
+  display: block !important;
+}
+
+/* Đảm bảo nút bên trong cũng full width */
+.qm-sidebar-btn-excel {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}

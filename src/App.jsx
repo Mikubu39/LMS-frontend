@@ -19,7 +19,10 @@ import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import CourseManagement from "./pages/admin/CourseManagement.jsx";
 import CourseManager from "./pages/admin/CourseManager.jsx";      // 👈 trang quản lý 1 khoá
 import PostManagement from "./pages/admin/PostManagement.jsx";   // 👈 quản lý bài viết
-
+import QuestionManager from "./pages/admin/QuestionManager.jsx";
+import QuizManager from "./pages/admin/QuizManager.jsx"
+import ClassManagement from "./pages/admin/ClassManagement.jsx";
+import ClassDetail from "./pages/admin/ClassDetail.jsx"
 // ===== TEACHER =====
 import TeacherDashboard from "./pages/teacher/TeacherDashboard.jsx";
 
@@ -87,7 +90,10 @@ export default function App() {
                 path="courses/:courseId/manage"
                 element={<CourseManager />}
               />
-
+              <Route path="question-banks" element={<QuizManager />} />
+              <Route path="questions" element={<QuestionManager />} />
+              <Route path="classes" element={<ClassManagement />} />
+              <Route path="classes/:classId" element={<ClassDetail />} /> {/* Route Mới */}
               {/* /admin/posts - quản lý bài viết */}
               <Route path="posts" element={<PostManagement />} />
 

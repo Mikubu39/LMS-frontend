@@ -1,302 +1,409 @@
 // ✅ src/pages/admin/CourseManager.jsx
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Button, Card, Input, Select, List, message } from "antd";
-import { ArrowLeftOutlined } from "@ant-design/icons";
+import { 
+  Button, Input, Tree, Modal, Form, message, 
+  Popconfirm, Spin, Typography, Empty, Alert, Breadcrumb, Select 
+} from "antd";
+import { 
+  ArrowLeftOutlined, PlusOutlined, DeleteOutlined, 
+  FolderOpenOutlined, FileOutlined, VideoCameraFilled, 
+  ReadOutlined, ExperimentOutlined, SaveOutlined, 
+  AppstoreOutlined, EditOutlined, RightOutlined, SearchOutlined // 👈 Import SearchOutlined
+} from "@ant-design/icons";
 
+// Import API
 import { CourseApi } from "@/services/api/courseApi.jsx";
 import { SessionApi } from "@/services/api/sessionApi.jsx";
+import { LessonApi } from "@/services/api/lessonApi.jsx";
+import { QuizApi } from "@/services/api/quizApi.jsx";
 
 import "@/css/course-manager.css";
 
+const { TextArea } = Input;
+const { Title } = Typography;
 const { Option } = Select;
 
-const LESSON_TYPES = [
-  { key: "video", label: "Video" },
-  { key: "reading", label: "Bài đọc" },
-  { key: "quiz", label: "Bài kiểm tra" },
-  { key: "flashcard", label: "Thẻ ghi nhớ" },
-  { key: "pdf", label: "Tài liệu PDF" },
-  { key: "audio", label: "Audio" },
-];
+const ICONS = {
+  SESSION: <FolderOpenOutlined style={{ color: '#f59e0b', fontSize: 16 }} />, 
+  LESSON: <FileOutlined style={{ color: '#6b7280' }} />,    
+  VIDEO: <VideoCameraFilled style={{ color: '#ef4444' }} />, 
+  TEXT: <ReadOutlined style={{ color: '#3b82f6' }} />,
+  QUIZ: <ExperimentOutlined style={{ color: '#10b981' }} />,
+  ESSAY: <EditOutlined style={{ color: '#8b5cf6' }} />,
+};
 
 export default function CourseManager() {
   const { courseId } = useParams();
   const navigate = useNavigate();
+  const [form] = Form.useForm();
 
   const [course, setCourse] = useState(null);
-  const [sessions, setSessions] = useState([]);
-  const [selectedSession, setSelectedSession] = useState(null);
-  const [sessionTitle, setSessionTitle] = useState("");
-  const [requiredType, setRequiredType] = useState("none");
-  const [saving, setSaving] = useState(false);
+  const [treeData, setTreeData] = useState([]); 
+  const [rawData, setRawData] = useState([]);   
+  const [loading, setLoading] = useState(false);
 
-  // ===== LOAD COURSE =====
-  const fetchCourse = useCallback(async () => {
+  // State danh sách Quiz
+  const [quizList, setQuizList] = useState([]); 
+
+  const [selectedKeys, setSelectedKeys] = useState([]);
+  const [selectedNode, setSelectedNode] = useState(null); 
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState(""); 
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalAction, setModalAction] = useState(null); 
+  const [addItemType, setAddItemType] = useState(null); 
+
+  // --- BUILD TREE ---
+  const buildTree = (sessions) => {
+    return sessions.map((session, index) => ({
+      title: <span style={{ fontWeight: 600, color: '#1f2937' }}>Chương {index + 1}: {session.title}</span>,
+      key: `session-${session.id}`,
+      icon: ICONS.SESSION,
+      data: { ...session, type: 'session' }, 
+      children: (session.lessons || []).map((lesson, lIdx) => ({
+        title: <span style={{ color: '#4b5563' }}>{lIdx + 1}. {lesson.title}</span>,
+        key: `lesson-${lesson.id}`,
+        icon: ICONS.LESSON,
+        data: { ...lesson, type: 'lesson' },
+        children: (lesson.items || []).map(item => ({
+          title: item.title || item.type, 
+          key: `item-${item.id}`,
+          icon: ICONS[item.type?.toUpperCase()] || ICONS.TEXT,
+          isLeaf: true,
+          data: { ...item, type: 'item', itemType: item.type, parentLessonId: lesson.id },
+        }))
+      }))
+    }));
+  };
+
+  // --- FETCH DATA ---
+  const fetchFullData = useCallback(async () => {
+    setLoading(true);
     try {
-      const data = await CourseApi.getCourseById(courseId);
-      setCourse(data);
+      const [courseRes, sessionRes, quizzes] = await Promise.all([
+        CourseApi.getCourseById(courseId),
+        SessionApi.getSessionsByCourse(courseId),
+        QuizApi.getAll()
+      ]);
+
+      setCourse(courseRes);
+      setQuizList(quizzes || []);
+
+      const sortedData = sessionRes.map(session => {
+        const sortedLessons = (session.lessons || []).sort((a, b) => (a.order || 0) - (b.order || 0));
+        sortedLessons.forEach(lesson => {
+           if (lesson.items) lesson.items.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+        });
+        return { ...session, lessons: sortedLessons };
+      });
+      sortedData.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+      setRawData(sortedData);
+      setTreeData(buildTree(sortedData)); 
+
     } catch (err) {
-      console.error("❌ Lỗi load course:", err);
-      message.error("Không tải được thông tin khóa học");
-    }
-  }, [courseId]);
-
-  // ===== LOAD SESSIONS THEO COURSE =====
-  const fetchSessions = useCallback(async () => {
-    try {
-      let data = [];
-      if (SessionApi.getSessionsByCourse) {
-        data = await SessionApi.getSessionsByCourse(courseId);
-      } else {
-        const all = await SessionApi.getAllSessions();
-        data =
-          all?.filter(
-            (s) => s.course?.id === courseId || s.courseId === courseId
-          ) || [];
-      }
-
-      setSessions(data || []);
-
-      if (data && data.length > 0) {
-        const first = data[0];
-        setSelectedSession(first);
-        setSessionTitle(first.title || "");
-        setRequiredType(first.requiredType || "none");
-      } else {
-        setSelectedSession(null);
-        setSessionTitle("");
-        setRequiredType("none");
-      }
-    } catch (err) {
-      console.error("❌ Lỗi load sessions:", err);
-      message.error("Không tải được danh sách chương");
+      console.error(err);
+      message.error("Không thể tải dữ liệu khoá học");
+    } finally {
+      setLoading(false);
     }
   }, [courseId]);
 
   useEffect(() => {
-    fetchCourse();
-    fetchSessions();
-  }, [fetchCourse, fetchSessions]);
+    fetchFullData();
+  }, [fetchFullData]);
 
-  const handleSelectSession = (session) => {
-    setSelectedSession(session);
-    setSessionTitle(session.title || "");
-    setRequiredType(session.requiredType || "none");
+  // --- HANDLERS ---
+  const handleSelect = (keys, info) => {
+    if (keys.length > 0) {
+      const node = info.node;
+      setSelectedKeys(keys);
+      setSelectedNode(node.data); 
+      setEditTitle(node.data.title || "");
+      setEditContent(""); 
+      
+      if (node.data.type === 'item') {
+        const type = node.data.itemType;
+        if (type === 'Video') setEditContent(node.data.videoUrl || "");
+        else if (type === 'Text' || type === 'Essay') setEditContent(node.data.textContent || "");
+        else if (type === 'Quiz') setEditContent(node.data.resource_quiz_id || "");
+      }
+    }
   };
 
-  // ===== CẬP NHẬT SESSION HIỆN TẠI =====
-  const handleUpdateSession = async () => {
-    if (!selectedSession) return;
+  const openModal = (action, type = null) => {
+    setModalAction(action);
+    setAddItemType(type);
+    form.resetFields();
+    if (action === 'ADD_SESSION') form.setFieldsValue({ title: `Chương mới` });
+    if (action === 'ADD_LESSON') form.setFieldsValue({ title: `Bài học mới` });
+    if (action === 'ADD_ITEM') form.setFieldsValue({ title: `${type} mới` });
+    setIsModalOpen(true);
+  };
+
+  const handleModalSubmit = async () => {
     try {
-      setSaving(true);
-      await SessionApi.updateSession(selectedSession.id, {
-        title: sessionTitle,
-        requiredType,
-      });
-      message.success("Cập nhật chương thành công");
-      fetchSessions();
-    } catch (err) {
-      console.error("❌ Lỗi cập nhật chương:", err);
-      const backendMsg = err?.response?.data?.message;
-      const msg = Array.isArray(backendMsg)
-        ? backendMsg.join(", ")
-        : backendMsg || err?.message || "Cập nhật chương thất bại";
-      message.error(msg);
-    } finally {
-      setSaving(false);
-    }
+      const values = await form.validateFields();
+      if (modalAction === 'ADD_SESSION') {
+        await SessionApi.createSession({ title: values.title, courseId, order: rawData.length + 1 });
+        message.success("Thêm chương thành công");
+      } 
+      else if (modalAction === 'ADD_LESSON') {
+        let sessionId = selectedNode?.type === 'session' ? selectedNode.id : selectedNode?.sessionId;
+        await LessonApi.createLesson({ title: values.title, sessionId: sessionId, order: 99 });
+        message.success("Thêm bài học thành công");
+      } 
+      else if (modalAction === 'ADD_ITEM') {
+        let lessonId = selectedNode?.type === 'lesson' ? selectedNode.id : null;
+        const payload = { type: addItemType, title: values.title };
+        
+        if (addItemType === 'Video') payload.videoUrl = values.content;
+        else if (addItemType === 'Text' || addItemType === 'Essay') payload.textContent = values.content;
+        else if (addItemType === 'Quiz') payload.quizId = values.content; 
+
+        await LessonApi.addLessonItem(lessonId, payload);
+        message.success(`Thêm ${addItemType} thành công`);
+      }
+      setIsModalOpen(false);
+      fetchFullData();
+    } catch (err) { message.error("Có lỗi xảy ra"); }
   };
 
-  // ===== XOÁ SESSION HIỆN TẠI =====
-  const handleDeleteSession = async () => {
-    if (!selectedSession) return;
+  const handleSave = async () => {
+    if (!selectedNode) return;
     try {
-      await SessionApi.deleteSession(selectedSession.id);
-      message.success("Xoá chương thành công");
-      setSelectedSession(null);
-      setSessionTitle("");
-      setRequiredType("none");
-      fetchSessions();
-    } catch (err) {
-      console.error("❌ Lỗi xoá chương:", err);
-      const backendMsg = err?.response?.data?.message;
-      const msg = Array.isArray(backendMsg)
-        ? backendMsg.join(", ")
-        : backendMsg || "Xoá chương thất bại";
-      message.error(msg);
-    }
+      if (selectedNode.type === 'session') await SessionApi.updateSession(selectedNode.id, { title: editTitle });
+      else if (selectedNode.type === 'lesson') await LessonApi.updateLesson(selectedNode.id, { title: editTitle });
+      else if (selectedNode.type === 'item') {
+        const payload = { title: editTitle };
+        const type = selectedNode.itemType;
+        if (type === 'Video') payload.videoUrl = editContent;
+        else if (type === 'Text' || type === 'Essay') payload.textContent = editContent;
+        else if (type === 'Quiz') payload.quizId = editContent;
+        
+        await LessonApi.updateLessonItem(selectedNode.id, payload);
+      }
+      message.success("Đã lưu thay đổi");
+      fetchFullData();
+    } catch (err) { message.error("Lỗi khi lưu"); }
   };
 
-  // ===== TẠO CHƯƠNG MỚI =====
-  const handleCreateSession = async () => {
+  const handleDelete = async () => {
+    if (!selectedNode) return;
     try {
-      const title = `Chương mới ${sessions.length + 1}`;
-      const body = {
-        title,
-        order: sessions.length + 1,
-        courseId, // tuỳ DTO backend
-      };
-      await SessionApi.createSession(body);
-      message.success("Tạo chương mới thành công");
-      fetchSessions();
-    } catch (err) {
-      console.error("❌ Lỗi tạo chương:", err);
-      const backendMsg = err?.response?.data?.message;
-      const msg = Array.isArray(backendMsg)
-        ? backendMsg.join(", ")
-        : backendMsg || "Tạo chương thất bại";
-      message.error(msg);
-    }
-  };
-
-  // (Hiện tại chỉ UI, chưa gắn API cho từng loại bài giảng)
-  const handleAddLessonType = (typeKey) => {
-    if (!selectedSession) {
-      message.info("Hãy chọn một chương trước khi thêm bài giảng");
-      return;
-    }
-    message.info(`(Demo) Thêm bài giảng loại: ${typeKey} cho chương hiện tại`);
+      if (selectedNode.type === 'session') await SessionApi.deleteSession(selectedNode.id);
+      else if (selectedNode.type === 'lesson') await LessonApi.deleteLesson(selectedNode.id);
+      else if (selectedNode.type === 'item') await LessonApi.deleteLessonItem(selectedNode.id);
+      message.success("Đã xoá thành công");
+      setSelectedNode(null);
+      setSelectedKeys([]);
+      fetchFullData();
+    } catch (err) { message.error("Lỗi khi xoá"); }
   };
 
   return (
-    <div className="course-manager-page">
-      {/* Thanh trên cùng (màu xanh) */}
-      <div className="cm-topbar">
-        <Button
-          type="text"
-          icon={<ArrowLeftOutlined />}
-          onClick={() => navigate("/admin/courses")}
-          className="cm-topbar-back"
-        >
-          Khóa học
-        </Button>
-
-        <div className="cm-topbar-center">
-          <span>Website khởi tạo từ</span>
-          <strong>RikaSoft</strong>
+    <div className="course-manager-container">
+      <header className="cm-header">
+        <div style={{display:'flex', alignItems:'center'}}>
+           <Button type="text" icon={<ArrowLeftOutlined style={{fontSize: 18}}/>} onClick={() => navigate(-1)} />
+           <div className="cm-header-title">{course?.title || "Quản lý nội dung"}</div>
         </div>
+        <div><Button>Xem trước khoá học</Button></div>
+      </header>
 
-        <div className="cm-topbar-right">
-          <Button type="link">Xem trước</Button>
-        </div>
+      <div className="cm-body">
+        {/* SIDEBAR */}
+        <aside className="cm-sidebar">
+           <div className="cm-sidebar-toolbar">
+              <Button type="primary" block icon={<PlusOutlined />} onClick={() => openModal('ADD_SESSION')}>
+                Tạo Chương Mới
+              </Button>
+           </div>
+           <div className="cm-sidebar-content">
+             {loading ? <div style={{textAlign:'center', marginTop: 40}}><Spin /></div> : (
+               <Tree
+                 showIcon
+                 blockNode
+                 defaultExpandAll
+                 selectedKeys={selectedKeys}
+                 onSelect={handleSelect}
+                 treeData={treeData}
+                 className="cm-tree"
+               />
+             )}
+           </div>
+        </aside>
+
+        {/* EDITOR PANEL */}
+        <main className="cm-content">
+          {!selectedNode ? (
+             <div className="cm-empty-state">
+               <AppstoreOutlined style={{fontSize: 64, color: '#e5e7eb', marginBottom: 20}} />
+               <Title level={4} style={{color: '#9ca3af', fontWeight: 500}}>Chọn nội dung để chỉnh sửa</Title>
+               <p style={{color: '#9ca3af'}}>Chọn chương hoặc bài học từ danh sách bên trái để bắt đầu.</p>
+             </div>
+          ) : (
+            <div className="cm-editor-panel">
+               <Breadcrumb separator={<RightOutlined size="small" style={{fontSize: 10}}/>} style={{marginBottom: 20, color: '#6b7280'}}>
+                  <Breadcrumb.Item>{course?.title}</Breadcrumb.Item>
+                  <Breadcrumb.Item>{selectedNode.title}</Breadcrumb.Item>
+               </Breadcrumb>
+
+               <div className="cm-editor-header">
+                  <div>
+                    <span className="cm-node-tag" style={{
+                        background: selectedNode.type === 'session' ? '#fff7ed' : '#eff6ff', 
+                        color: selectedNode.type === 'session' ? '#c2410c' : '#2563eb',
+                        border: selectedNode.type === 'session' ? '1px solid #fed7aa' : '1px solid #bfdbfe'
+                    }}>
+                        {selectedNode.type === 'item' ? selectedNode.itemType : selectedNode.type}
+                    </span>
+                    <Title level={3} style={{margin: '12px 0 0 0', fontWeight: 700}}>
+                        {selectedNode.type === 'item' ? 'Chi tiết nội dung' : 'Thông tin chung'}
+                    </Title>
+                  </div>
+                  <div className="cm-header-actions">
+                    <Popconfirm title="Bạn có chắc chắn muốn xoá mục này?" okText="Xoá" cancelText="Hủy" onConfirm={handleDelete}>
+                       <Button danger type="text" icon={<DeleteOutlined />}>Xoá</Button>
+                    </Popconfirm>
+                    <Button type="primary" size="large" icon={<SaveOutlined />} onClick={handleSave} style={{padding: '0 30px'}}>
+                        Lưu thay đổi
+                    </Button>
+                  </div>
+               </div>
+
+               <div className="cm-editor-form">
+                   <div className="cm-form-section">
+                     <label>Tiêu đề hiển thị</label>
+                     <Input size="large" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+                   </div>
+
+                   {selectedNode.type === 'session' && (
+                     <Alert 
+                        message="Quản lý Chương học" 
+                        description="Đây là thư mục chứa các bài học. Bấm vào nút bên dưới để thêm bài học mới." 
+                        type="info" showIcon 
+                        action={<Button size="small" type="primary" onClick={() => openModal('ADD_LESSON')}>+ Thêm Bài Học</Button>}
+                     />
+                   )}
+
+                   {selectedNode.type === 'lesson' && (
+                     <div className="cm-lesson-actions">
+                        <Title level={5} style={{marginTop: 0, color: '#333'}}>Thêm nội dung vào bài học này</Title>
+                        <div className="cm-action-grid">
+                          <Button size="large" icon={<VideoCameraFilled style={{color: '#ef4444'}}/>} onClick={() => openModal('ADD_ITEM', 'Video')}>Video</Button>
+                          <Button size="large" icon={<ReadOutlined style={{color: '#3b82f6'}}/>} onClick={() => openModal('ADD_ITEM', 'Text')}>Bài đọc</Button>
+                          <Button size="large" icon={<EditOutlined style={{color: '#8b5cf6'}}/>} onClick={() => openModal('ADD_ITEM', 'Essay')}>Tự luận</Button>
+                          <Button size="large" icon={<ExperimentOutlined style={{color: '#10b981'}}/>} onClick={() => openModal('ADD_ITEM', 'Quiz')}>Quiz</Button>
+                        </div>
+                     </div>
+                   )}
+
+                   {selectedNode.type === 'item' && (
+                      <div className="cm-form-section">
+                         {/* VIDEO */}
+                         {selectedNode.itemType === 'Video' && (
+                           <>
+                             <label>YouTube Video URL</label>
+                             <Input size="large" prefix={<VideoCameraFilled style={{color:'#ccc'}}/>} value={editContent} onChange={(e) => setEditContent(e.target.value)} placeholder="https://youtube.com/..." />
+                             {editContent && <div style={{marginTop: 20, borderRadius: 12, overflow: 'hidden', height: 300}}><iframe width="100%" height="100%" src={editContent.replace("watch?v=", "embed/")} frameBorder="0" allowFullScreen /></div>}
+                           </>
+                         )}
+
+                         {/* TEXT / ESSAY */}
+                         {(selectedNode.itemType === 'Text' || selectedNode.itemType === 'Essay') && (
+                           <>
+                             <label>{selectedNode.itemType === 'Essay' ? 'Đề bài luận (Câu hỏi)' : 'Nội dung bài học'}</label>
+                             <TextArea rows={18} value={editContent} onChange={(e) => setEditContent(e.target.value)} placeholder="Nhập nội dung..." />
+                           </>
+                         )}
+
+                         {/* QUIZ SELECT NÂNG CẤP */}
+                         {selectedNode.itemType === 'Quiz' && (
+                           <>
+                             <label>Chọn Bộ đề (Quiz)</label>
+                             <Select
+                                showSearch
+                                allowClear
+                                size="large"
+                                style={{ width: '100%' }}
+                                placeholder="Tìm kiếm tên bộ đề..."
+                                value={editContent} // Binding ID quiz
+                                onChange={setEditContent}
+                                suffixIcon={<SearchOutlined />} // 👈 Thêm icon kính lúp
+                                filterOption={(input, option) => 
+                                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                }
+                                options={quizList.map(q => ({
+                                   value: q.quiz_id,
+                                   label: `${q.title} (${q.duration} phút)`
+                                }))}
+                                notFoundContent={<Empty description="Không tìm thấy Quiz nào" />}
+                             />
+                             <div style={{marginTop: 15, padding: 15, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, color: '#166534'}}>
+                                <ExperimentOutlined style={{marginRight: 8}} />
+                                <strong>Thông tin:</strong> Học viên sẽ làm bài trắc nghiệm dựa trên bộ đề này.
+                             </div>
+                           </>
+                         )}
+                      </div>
+                   )}
+               </div>
+            </div>
+          )}
+        </main>
       </div>
 
-      <div className="cm-main">
-        {/* CỘT TRÁI: DANH SÁCH CHƯƠNG + KHU BÀI GIẢNG */}
-        <div className="cm-left">
-          <div className="cm-left-header">
-            <span>{course?.title || "Các chương"}</span>
-          </div>
-
-          <div className="cm-session-list">
-            <List
-              dataSource={sessions}
-              locale={{ emptyText: "Chưa có chương nào" }}
-              renderItem={(s, index) => (
-                <div
-                  className={
-                    "cm-session-item" +
-                    (selectedSession?.id === s.id
-                      ? " cm-session-item--active"
-                      : "")
-                  }
-                  onClick={() => handleSelectSession(s)}
-                >
-                  <span className="cm-session-index">
-                    Bài {s.order ?? index + 1}:
-                  </span>
-                  <span className="cm-session-title">{s.title}</span>
-                </div>
-              )}
-            />
-          </div>
-
-          {/* Thanh nhỏ: Thêm bài giảng + Lưu */}
-          <div className="cm-lesson-toolbar">
-            <Button type="primary" size="small">
-              + Thêm bài giảng
-            </Button>
-            <Button size="small">Lưu</Button>
-          </div>
-
-          {/* Grid các loại bài giảng */}
-          <div className="cm-lesson-types">
-            {LESSON_TYPES.map((lt) => (
-              <div
-                key={lt.key}
-                className="cm-lesson-type-card"
-                onClick={() => handleAddLessonType(lt.key)}
-              >
-                <div className="cm-lesson-type-label">{lt.label}</div>
-              </div>
-            ))}
-          </div>
-
-          <Button
-            type="primary"
-            block
-            className="cm-add-session-btn"
-            onClick={handleCreateSession}
-          >
-            + Thêm chương
-          </Button>
-        </div>
-
-        {/* CỘT PHẢI: FORM CHỈNH SỬA CHƯƠNG */}
-        <div className="cm-right">
-          <Card className="cm-session-card">
-            <h3 className="cm-section-title">
-              Tiêu đề: {selectedSession?.title || "Chọn một chương bên trái"}
-            </h3>
-
-            <div className="cm-form-row">
-              <div className="cm-form-label">* Tiêu đề của chương:</div>
-              <div className="cm-form-field">
-                <Input
-                  value={sessionTitle}
-                  onChange={(e) => setSessionTitle(e.target.value)}
-                  disabled={!selectedSession}
-                  placeholder="Nhập tiêu đề chương"
-                />
-              </div>
-            </div>
-
-            <div className="cm-form-row">
-              <div className="cm-form-label">* Bắt buộc làm:</div>
-              <div className="cm-form-field">
-                <Select
-                  value={requiredType}
-                  onChange={setRequiredType}
-                  disabled={!selectedSession}
-                  style={{ width: 220 }}
-                >
-                  <Option value="none">Không bắt buộc</Option>
-                  <Option value="required">Bắt buộc</Option>
-                </Select>
-              </div>
-            </div>
-
-            <div className="cm-actions">
-              <Button
-                danger
-                onClick={handleDeleteSession}
-                disabled={!selectedSession}
-              >
-                Xoá chương
-              </Button>
-              <Button
-                type="primary"
-                onClick={handleUpdateSession}
-                disabled={!selectedSession}
-                loading={saving}
-              >
-                Cập nhật
-              </Button>
-            </div>
-          </Card>
-        </div>
-      </div>
+      {/* MODAL CREATE */}
+      <Modal
+        title={<span style={{fontSize: 18, fontWeight: 600}}>
+            {modalAction === 'ADD_SESSION' ? "Thêm Chương Mới" : 
+             modalAction === 'ADD_LESSON' ? "Thêm Bài Học Mới" : 
+             `Thêm ${addItemType}`}
+        </span>}
+        open={isModalOpen}
+        onCancel={() => setIsModalOpen(false)}
+        onOk={handleModalSubmit}
+        centered
+        width={500}
+      >
+        <Form form={form} layout="vertical" style={{marginTop: 24}}>
+          <Form.Item name="title" label="Tiêu đề" rules={[{required:true, message: "Vui lòng nhập tiêu đề"}]}>
+            <Input size="large" placeholder="Nhập tiêu đề..." />
+          </Form.Item>
+          
+          {modalAction === 'ADD_ITEM' && (
+             <Form.Item 
+                name="content" 
+                label={addItemType === 'Video' ? 'Link Video' : addItemType === 'Quiz' ? 'Chọn Quiz' : 'Nội dung'}
+                rules={[{ required: addItemType !== 'Quiz' }]}
+             >
+                {/* LOGIC SELECT TRONG MODAL */}
+                {addItemType === 'Quiz' ? (
+                   <Select
+                      showSearch
+                      allowClear
+                      size="large"
+                      placeholder="Gõ tên để tìm kiếm bộ đề..."
+                      suffixIcon={<SearchOutlined />}
+                      filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                      options={quizList.map(q => ({
+                         value: q.quiz_id,
+                         label: `${q.title} (${q.duration} phút)`
+                      }))}
+                      notFoundContent={<Empty description="Chưa có Quiz nào" />}
+                   />
+                ) : addItemType === 'Text' || addItemType === 'Essay' ? (
+                    <TextArea rows={6} placeholder="Nhập nội dung..." />
+                ) : (
+                    <Input size="large" placeholder="Nhập link..." />
+                )}
+             </Form.Item>
+          )}
+        </Form>
+      </Modal>
     </div>
   );
 }
