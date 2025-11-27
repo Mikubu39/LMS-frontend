@@ -1,0 +1,86 @@
+/* ========== 404 PAGE ========== */
+
+.nf-page {
+  position: relative;
+  width: 100%;
+  min-height: calc(100vh - 160px); /* trừ footer ~160px */
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: #ffffff; /* đúng figma */
+}
+
+/* Khối nội dung giữa trang */
+.nf-inner {
+  margin-top: 120px; /* căn giống figma từ trên xuống */
+  text-align: center;
+}
+
+/* Ảnh mèo 404 */
+.nf-illustration {
+  margin-bottom: 32px;
+}
+
+.nf-illustration img {
+  display: block;
+  max-width: 420px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Tiêu đề Oops! */
+.nf-title {
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 36px;
+  color: #262626;
+  margin-bottom: 8px;
+}
+
+/* Sub text: Trang không thể tìm thấy. */
+.nf-subtitle {
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 22px;
+  color: #8c8c8c;
+  margin-bottom: 32px;
+}
+
+/* Nút Về trang chủ */
+.nf-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 24px;
+  border-radius: 999px;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  background: #f97316; /* brand cam */
+  color: #ffffff;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+  box-shadow: 0 10px 25px rgba(249, 115, 22, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.nf-btn:hover {
+  background: #ea580c;
+  box-shadow: 0 14px 32px rgba(249, 115, 22, 0.32);
+  transform: translateY(-1px);
+}
+
+.nf-btn:active {
+  background: #c2410c;
+  box-shadow: 0 6px 18px rgba(249, 115, 22, 0.25);
+  transform: translateY(0);
+}
+
+/* icon trong nút */
+.nf-btn-icon-svg {
+  display: block;
+}

@@ -12,7 +12,7 @@ import {
   logout,
 } from "../redux/authSlice";
 
-// ===== ICONS =====
+/* ========== ICONS ========== */
 const SearchIcon = () => (
   <svg className="mk-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
     <path d="M11.5 21.75C5.85 21.75 1.25 17.15 1.25 11.5C1.25 5.85 5.85 1.25 11.5 1.25C17.15 1.25 21.75 5.85 21.75 11.5C21.75 17.15 17.15 21.75 11.5 21.75ZM11.5 2.75C6.67 2.75 2.75 6.68 2.75 11.5C2.75 16.32 6.67 20.25 11.5 20.25C16.33 20.25 20.25 16.32 20.25 11.5C20.25 6.68 16.33 2.75 11.5 2.75Z" fill="#292D32" />
@@ -44,10 +44,11 @@ const PostsIcon = () => (
   </svg>
 );
 
-// fallback avatar
+/* fallback avatar */
 const DEFAULT_AVATAR =
   "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg";
 
+/* ========== COMPONENT ========== */
 export default function Header() {
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
@@ -70,7 +71,7 @@ export default function Header() {
   const handleLogout = () => {
     dispatch(logout());
     setOpen(false);
-    navigate("/"); // về trang chủ (Home.jsx)
+    navigate("/login");
   };
 
   const handleGoProfile = () => {
@@ -83,6 +84,11 @@ export default function Header() {
     navigate("/dashboard");
   };
 
+  // click icon tìm kiếm -> /search
+  const handleGoSearch = () => {
+    navigate("/search");
+  };
+
   const avatarSrc = user?.avatar || DEFAULT_AVATAR;
   const displayName = user?.name || user?.full_name || "Khách";
   const displayEmail = user?.email || "guest@example.com";
@@ -91,21 +97,21 @@ export default function Header() {
     <div className="mk-header-wrapper">
       <header className="mk-header">
         <div className="mk-header-left">
-          {/* Logo: click về Trang chủ */}
-          <Link to="/" className="mk-header-logo">
+          {/* Logo: click sang Dashboard */}
+          <Link to="/dashboard" className="mk-header-logo">
             <img src={logo} alt="Mankai Academy" />
           </Link>
 
           <span className="mk-header-sep" />
 
           <nav className="mk-header-nav">
-            {/* Trang chủ → route "/" */}
+            {/* Trang chủ */} 
             <Link to="/" className="mk-header-link">
               <HomeIcon />
               <span>Trang chủ</span>
             </Link>
 
-            {/* Bài viết → route "/posts" */}
+            {/* Bài viết */}
             <Link to="/posts" className="mk-header-link">
               <PostsIcon />
               <span>Bài viết</span>
@@ -114,7 +120,11 @@ export default function Header() {
         </div>
 
         <div className="mk-header-right" ref={menuRef}>
-          <button className="mk-icon-button" aria-label="Tìm kiếm">
+          <button
+            className="mk-icon-button"
+            aria-label="Tìm kiếm"
+            onClick={handleGoSearch}
+          >
             <SearchIcon />
           </button>
 
@@ -124,7 +134,6 @@ export default function Header() {
 
           {isAuth ? (
             <>
-              {/* ĐÃ ĐĂNG NHẬP: avatar + menu user */}
               <button
                 className="mk-avatar-button"
                 onClick={() => setOpen((v) => !v)}
@@ -178,7 +187,6 @@ export default function Header() {
               )}
             </>
           ) : (
-            // CHƯA ĐĂNG NHẬP: nút Đăng nhập
             <Link to="/login" className="mk-login-button">
               Đăng nhập
             </Link>

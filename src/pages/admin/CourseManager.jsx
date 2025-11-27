@@ -9,7 +9,7 @@ import {
   ArrowLeftOutlined, PlusOutlined, DeleteOutlined, 
   FolderOpenOutlined, FileOutlined, VideoCameraFilled, 
   ReadOutlined, ExperimentOutlined, SaveOutlined, 
-  AppstoreOutlined, EditOutlined, RightOutlined, SearchOutlined // 👈 Import SearchOutlined
+  AppstoreOutlined, EditOutlined, RightOutlined, SearchOutlined 
 } from "@ant-design/icons";
 
 // Import API
@@ -17,6 +17,9 @@ import { CourseApi } from "@/services/api/courseApi.jsx";
 import { SessionApi } from "@/services/api/sessionApi.jsx";
 import { LessonApi } from "@/services/api/lessonApi.jsx";
 import { QuizApi } from "@/services/api/quizApi.jsx";
+
+// 👇 IMPORT CKEDITOR COMPONENT
+import CkEditorField from "@/components/form/CkEditorField.jsx"; 
 
 import "@/css/course-manager.css";
 
@@ -43,7 +46,6 @@ export default function CourseManager() {
   const [rawData, setRawData] = useState([]);   
   const [loading, setLoading] = useState(false);
 
-  // State danh sách Quiz
   const [quizList, setQuizList] = useState([]); 
 
   const [selectedKeys, setSelectedKeys] = useState([]);
@@ -280,6 +282,7 @@ export default function CourseManager() {
                      <Input size="large" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
                    </div>
 
+                   {/* ... (Các phần Session/Lesson giữ nguyên) ... */}
                    {selectedNode.type === 'session' && (
                      <Alert 
                         message="Quản lý Chương học" 
@@ -312,15 +315,18 @@ export default function CourseManager() {
                            </>
                          )}
 
-                         {/* TEXT / ESSAY */}
+                         {/* 👇 THAY ĐỔI: SỬ DỤNG CKEDITOR CHO TEXT & ESSAY */}
                          {(selectedNode.itemType === 'Text' || selectedNode.itemType === 'Essay') && (
                            <>
                              <label>{selectedNode.itemType === 'Essay' ? 'Đề bài luận (Câu hỏi)' : 'Nội dung bài học'}</label>
-                             <TextArea rows={18} value={editContent} onChange={(e) => setEditContent(e.target.value)} placeholder="Nhập nội dung..." />
+                             <CkEditorField 
+                                value={editContent} 
+                                onChange={setEditContent} 
+                             />
                            </>
                          )}
 
-                         {/* QUIZ SELECT NÂNG CẤP */}
+                         {/* QUIZ SELECT */}
                          {selectedNode.itemType === 'Quiz' && (
                            <>
                              <label>Chọn Bộ đề (Quiz)</label>
@@ -330,9 +336,9 @@ export default function CourseManager() {
                                 size="large"
                                 style={{ width: '100%' }}
                                 placeholder="Tìm kiếm tên bộ đề..."
-                                value={editContent} // Binding ID quiz
+                                value={editContent} 
                                 onChange={setEditContent}
-                                suffixIcon={<SearchOutlined />} // 👈 Thêm icon kính lúp
+                                suffixIcon={<SearchOutlined />}
                                 filterOption={(input, option) => 
                                   (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                                 }
@@ -367,7 +373,7 @@ export default function CourseManager() {
         onCancel={() => setIsModalOpen(false)}
         onOk={handleModalSubmit}
         centered
-        width={500}
+        width={addItemType === 'Text' || addItemType === 'Essay' ? 800 : 500} // Tăng width khi dùng Editor
       >
         <Form form={form} layout="vertical" style={{marginTop: 24}}>
           <Form.Item name="title" label="Tiêu đề" rules={[{required:true, message: "Vui lòng nhập tiêu đề"}]}>
@@ -380,7 +386,7 @@ export default function CourseManager() {
                 label={addItemType === 'Video' ? 'Link Video' : addItemType === 'Quiz' ? 'Chọn Quiz' : 'Nội dung'}
                 rules={[{ required: addItemType !== 'Quiz' }]}
              >
-                {/* LOGIC SELECT TRONG MODAL */}
+                {/* 👇 THAY ĐỔI: CKEDITOR TRONG MODAL */}
                 {addItemType === 'Quiz' ? (
                    <Select
                       showSearch
@@ -396,7 +402,10 @@ export default function CourseManager() {
                       notFoundContent={<Empty description="Chưa có Quiz nào" />}
                    />
                 ) : addItemType === 'Text' || addItemType === 'Essay' ? (
-                    <TextArea rows={6} placeholder="Nhập nội dung..." />
+                    <CkEditorField 
+                        // Cần dùng value/onChange của Form.Item
+                        // Antd Form.Item tự truyền value/onChange vào con trực tiếp
+                    />
                 ) : (
                     <Input size="large" placeholder="Nhập link..." />
                 )}

@@ -69,9 +69,19 @@ export default function AdminLayout() {
       label: "Quản lý bài viết",
     },
     {
-      key: "/admin/users",
+      key: "user-management-group", // Group key
       icon: <TeamOutlined />,
-      label: "Quản lý user",
+      label: "Quản lý người dùng",
+      children: [
+        {
+          key: "/admin/students",
+          label: "Học viên",
+        },
+        {
+          key: "/admin/teachers",
+          label: "Giảng viên",
+        },
+      ],
     },
   ];
 

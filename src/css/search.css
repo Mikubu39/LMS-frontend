@@ -1,0 +1,288 @@
+/* src/css/search.css */
+
+/* Nền chung theo Figma: Gray/25 */
+.sr-page {
+  background: #fafafa;
+  min-height: 100vh;
+}
+
+/* ===== HERO ORANGE ===== */
+.sr-hero {
+  width: 100%;
+  background: radial-gradient(circle at 0 0, #fbbf24 0, #f97316 40%, #ea580c 100%);
+  color: #fff;
+}
+
+.sr-hero-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 24px 72px;
+}
+
+.sr-breadcrumb {
+  font-size: 13px;
+  opacity: 0.9;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sr-breadcrumb-link {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.sr-breadcrumb-link:hover {
+  text-decoration: underline;
+}
+
+.sr-breadcrumb-sep {
+  opacity: 0.7;
+}
+
+.sr-breadcrumb-current {
+  font-weight: 500;
+}
+
+.sr-hero-title {
+  margin: 16px 0 0;
+  font-size: 32px;
+  font-weight: 700;
+}
+
+/* ===== SEARCH BAR (float) ===== */
+.sr-search-bar-wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  transform: translateY(-32px);
+  margin-bottom: -16px;
+}
+
+.sr-search-bar {
+  background: #ffffff;
+  border-radius: 999px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sr-search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  padding: 12px 20px;
+  border-radius: 999px;
+  font-size: 14px;
+  background: transparent;
+}
+
+.sr-search-input::placeholder {
+  color: #9ca3af;
+}
+
+.sr-search-btn {
+  border: none;
+  outline: none;
+  border-radius: 999px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  background: #f97316;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.sr-search-btn:hover {
+  background: #ea580c;
+}
+
+/* ===== RESULT SECTION ===== */
+.sr-results {
+  max-width: 1200px;
+  margin: 40px auto 80px;
+  padding: 0 24px 40px;
+}
+
+.sr-results-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  font-size: 14px;
+}
+
+.sr-results-count-number {
+  font-weight: 600;
+}
+
+.sr-results-sort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.sr-results-sort-label {
+  color: #6b7280;
+}
+
+.sr-results-sort-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #f97316;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sr-results-sort-arrow {
+  font-size: 10px;
+}
+
+/* ===== GRID ===== */
+.sr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+/* ===== CARD BASE ===== */
+.sr-card {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.sr-card-thumb {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.sr-card-thumb::before {
+  content: "";
+  display: block;
+  padding-bottom: 66.666%; /* 3:2 giống Figma */
+}
+
+.sr-card-thumb img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sr-card-body {
+  padding: 16px 18px 12px;
+}
+
+.sr-card-footer {
+  padding: 0 18px 16px;
+}
+
+/* Tags nhỏ trên card */
+.sr-card-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.sr-card-tag--level {
+  background: #fff7ed;
+  color: #f97316;
+}
+
+.sr-card-tag--category {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+/* Title & text */
+.sr-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.sr-card-excerpt {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #6b7280;
+  margin: 0 0 12px;
+}
+
+/* Meta row */
+.sr-card-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.sr-card-meta-row--article {
+  justify-content: flex-start;
+}
+
+.sr-card-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sr-meta-icon {
+  flex-shrink: 0;
+}
+
+/* CTA */
+.sr-card-cta {
+  width: 100%;
+  border-radius: 999px;
+  border: none;
+  padding: 10px 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: #fee2d5;
+  color: #f97316;
+  cursor: pointer;
+}
+
+.sr-card-cta:hover {
+  background: #fed7c2;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .sr-hero-inner {
+    padding: 24px 16px 64px;
+  }
+
+  .sr-search-bar-wrapper {
+    padding: 0 16px;
+    transform: translateY(-28px);
+  }
+
+  .sr-results {
+    padding: 0 16px 32px;
+    margin-top: 32px;
+  }
+}

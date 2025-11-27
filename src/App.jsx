@@ -12,17 +12,19 @@ import LessonPage from "./pages/LessonPage.jsx";
 import Posts from "./pages/Posts.jsx";
 import PostDetail from "./pages/PostDetail.jsx";
 import RequireAuth from "./pages/auth/RequireAuth.jsx";
-
+import SearchPage from "./pages/Search.jsx"
 // ===== ADMIN PAGES =====
 import AdminLayout from "./layouts/AdminLayout.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import CourseManagement from "./pages/admin/CourseManagement.jsx";
-import CourseManager from "./pages/admin/CourseManager.jsx";      // 👈 trang quản lý 1 khoá
+import CourseManager from "./pages/admin/CourseManager.jsx";    // 👈 trang quản lý 1 khoá
 import PostManagement from "./pages/admin/PostManagement.jsx";   // 👈 quản lý bài viết
 import QuestionManager from "./pages/admin/QuestionManager.jsx";
 import QuizManager from "./pages/admin/QuizManager.jsx"
 import ClassManagement from "./pages/admin/ClassManagement.jsx";
 import ClassDetail from "./pages/admin/ClassDetail.jsx"
+import StudentManager from "./pages/admin/StudentManager.jsx";
+import TeacherManager from "./pages/admin/TeacherManager.jsx";
 // ===== TEACHER =====
 import TeacherDashboard from "./pages/teacher/TeacherDashboard.jsx";
 
@@ -64,6 +66,7 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/lesson/:courseId" element={<LessonPage />} />
+            <Route path="/search" element={<SearchPage />} />
           </Route>
 
           {/* ========= TEACHER DOMAIN ========= */}
@@ -96,7 +99,8 @@ export default function App() {
               <Route path="classes/:classId" element={<ClassDetail />} /> {/* Route Mới */}
               {/* /admin/posts - quản lý bài viết */}
               <Route path="posts" element={<PostManagement />} />
-
+              <Route path="students" element={<StudentManager />} />
+              <Route path="teachers" element={<TeacherManager />} />
               {/* sau này thêm: /admin/classes, /admin/users,... */}
             </Route>
           </Route>

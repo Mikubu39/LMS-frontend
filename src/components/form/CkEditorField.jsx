@@ -6,19 +6,26 @@ import ClassicEditor from "@ckeditor/ckeditor5-build-classic";
 function CkEditorField({ value = "", onChange }) {
   const editorConfig = {
     language: "vi", // 👈 đặt ngôn ngữ là tiếng Việt
-    toolbar: [
-      "heading",
-      "|",
-      "bold",
-      "italic",
-      "link",
-      "bulletedList",
-      "numberedList",
-      "blockQuote",
-      "|",
-      "undo",
-      "redo",
-    ],
+    toolbar: {
+	items: [
+		'undo', 'redo',
+		'|',
+		'heading',
+		'|',
+		'fontfamily', 'fontsize', 'fontColor', 'fontBackgroundColor',
+		'|',
+		'bold', 'italic', 'strikethrough', 'subscript', 'superscript', 'code',
+		'|',
+		'link', 'uploadImage', 'blockQuote', 'codeBlock',
+		'|',
+		'alignment',
+		'|',
+		'bulletedList', 'numberedList', 'todoList', 'outdent', 'indent'
+	],
+	shouldNotGroupWhenFull: true
+}
+
+
   };
 
   return (

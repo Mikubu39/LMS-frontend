@@ -40,4 +40,10 @@ export const QuizApi = {
     const res = await http.put(`/quizzes/${quizId}/questions`, { assignments });
     return res.data;
   },
+  
+  submitQuiz: async (quizId, payload) => {
+    // payload: { answers: [...], lessonItemId }
+    const res = await http.post(`/quizzes/${quizId}/submit`, payload);
+    return res.data;
+  },
 };

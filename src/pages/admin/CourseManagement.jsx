@@ -18,7 +18,7 @@ import {
   EditOutlined,
   DeleteOutlined,
 } from "@ant-design/icons";
-import { useNavigate } from "react-router-dom";          // 👈 THÊM
+import { useNavigate } from "react-router-dom";
 import { CourseApi } from "@/services/api/courseApi.jsx";
 
 const { Option } = Select;
@@ -38,7 +38,7 @@ export default function CourseManagement() {
   const [editingId, setEditingId] = useState(null);
   const [form] = Form.useForm();
 
-  const navigate = useNavigate();                       // 👈 THÊM
+  const navigate = useNavigate();
 
   // 🔹 Lấy danh sách khóa học từ API
   const fetchCourses = useCallback(
@@ -53,11 +53,7 @@ export default function CourseManagement() {
           code:
             c.code || (c.id ? c.id.slice(0, 8).toUpperCase() : `C${index + 1}`),
           name: c.title,
-          teacher:
-            c.instructor?.full_name ||
-            c.instructor?.name ||
-            c.instructorName ||
-            "—",
+          // ❌ ĐÃ XÓA: teacher (Vì backend không còn trả về instructor)
           status: c.status || "Đang mở",
           sessionCount: c.sessions?.length ?? c.sessionCount ?? 0,
           raw: c,
@@ -168,11 +164,7 @@ export default function CourseManagement() {
       dataIndex: "name",
       key: "name",
     },
-    {
-      title: "Giảng viên",
-      dataIndex: "teacher",
-      key: "teacher",
-    },
+    // ❌ ĐÃ XÓA CỘT: Giảng viên
     {
       title: "Trạng thái",
       dataIndex: "status",
@@ -260,7 +252,7 @@ export default function CourseManagement() {
         }}
         okText={isEditing ? "Cập nhật" : "Tạo mới"}
         cancelText="Hủy"
-        destroyOnHidden   // 👈 dùng prop mới để khỏi warning
+        destroyOnHidden
       >
         <Form form={form} layout="vertical">
           <Form.Item

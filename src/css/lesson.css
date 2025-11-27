@@ -1,405 +1,841 @@
-/* ===== Layout chung ===== */
-.ls-page {
-  background: #f5f5f5;
-  padding: 24px 0 40px;
+/* src/css/lesson.css */ 
+
+/* ===== GLOBAL PAGE WRAPPER ===== */
+
+.lesson-page {
+  background-color: #ffffff;
+  min-height: 100vh;
 }
 
-.ls-inner {
-  max-width: 1200px;
+.lesson-main {
+  max-width: 1440px;
   margin: 0 auto;
-  padding: 0 16px;
+  padding: 24px 40px 40px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter",
+    "Segoe UI", sans-serif;
+  color: #111827;
 }
 
-/* ===== Breadcrumb + action ===== */
-.ls-breadcrumb-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
+/* ===== BREADCRUMB ===== */
+
+.lesson-breadcrumb {
   font-size: 13px;
-  color: #666;
+  line-height: 20px;
+  color: #6b7280;
+  margin-bottom: 16px;
 }
 
-.ls-breadcrumb {
+.lesson-breadcrumb span {
+  color: #111827;
+}
+
+/* ===== LAYOUT: left content + right sidebar ===== */
+
+.lesson-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3.1fr) 360px;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+/* Khi sidebar THU NHỎ: content + thanh 56px bên phải */
+.lesson-layout.sidebar-collapsed {
+  grid-template-columns: minmax(0, 1fr) 56px;
+}
+
+/* ===== Nút mở lại sidebar (nếu dùng kiểu button riêng) ===== */
+
+.lesson-sidebar-reopen {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  margin-bottom: 12px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background-color: #ffffff;
+  font-size: 12px;
+  color: #4b5563;
+  cursor: pointer;
+}
+
+/* ===== LEFT TOP: title + next / prev ===== */
+
+.lesson-header-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  margin-bottom: 12px;
 }
 
-.ls-breadcrumb-link {
-  cursor: pointer;
-  color: #999;
+.lesson-course-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
 }
 
-.ls-breadcrumb-link:hover {
-  text-decoration: underline;
+.lesson-nav {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background-color: #f9fafb;
+  padding: 4px;
+  font-size: 13px;
 }
 
-.ls-breadcrumb-course {
-  font-weight: 500;
-}
-
-.ls-breadcrumb-sep {
-  color: #ccc;
-}
-
-.ls-report-btn {
+.lesson-nav-btn {
   border: none;
   background: transparent;
-  color: #dd673c;
-  font-size: 13px;
+  padding: 4px 12px;
   cursor: pointer;
+  color: #4b5563;
 }
 
-/* ===== Main layout (video + sidebar) ===== */
-.ls-layout {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+.lesson-nav-btn-next {
+  color: #f97316;
 }
 
-/* ===== Video card ===== */
-.ls-main {
-  flex: 1;
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
-  padding-bottom: 24px;
+.lesson-nav-divider {
+  width: 1px;
+  height: 16px;
+  background-color: #e5e7eb;
 }
 
-.ls-video-card {
-  border-radius: 16px 16px 0 0;
-  overflow: hidden;
-  background: #000;
-}
+/* ===== VIDEO BLOCK ===== */
 
-.ls-video-thumb-wrapper {
+.lesson-video-wrapper {
   position: relative;
-  padding-top: 56.25%; /* 16:9 */
-  background: #000;
+  border-radius: 16px;
+  overflow: hidden;
+  background-color: #f97316; /* fallback màu cam khi chưa load video */
+  aspect-ratio: 16 / 9;
+  margin-bottom: 20px;
 }
 
-.ls-video-thumb {
-  position: absolute;
-  inset: 0;
+.lesson-video-iframe {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  border: none;
 }
 
-.ls-video-play-btn {
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 64px;
-  height: 64px;
-  border-radius: 999px;
-  border: none;
-  background: rgba(255, 255, 255, 0.9);
+.lesson-video-placeholder {
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
-  cursor: pointer;
-}
-
-.ls-video-meta-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 20px 10px;
-  background: #fafafa;
-  font-size: 12px;
-  color: #777;
-}
-
-.ls-video-meta-left {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.ls-video-dot,
-.ls-lesson-dot {
-  font-size: 14px;
-}
-
-/* ===== Lesson title & meta ===== */
-.ls-lesson-title {
-  padding: 16px 24px 4px;
-  font-size: 22px;
-  font-weight: 700;
-}
-
-.ls-lesson-submeta {
-  padding: 0 24px 12px;
-  font-size: 13px;
-  color: #666;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-/* ===== Section Mô tả ===== */
-.ls-section {
-  padding: 0 24px;
-}
-
-.ls-section-title {
+  color: #ffffff;
+  font-weight: 500;
   font-size: 16px;
+}
+
+.lesson-video-placeholder-text {
+  max-width: 280px;
+  text-align: center;
+}
+
+/* Thanh control “giả” giống ảnh */
+
+.lesson-video-controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(
+    180deg,
+    rgba(17, 24, 39, 0) 0%,
+    rgba(17, 24, 39, 0.9) 100%
+  );
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.lesson-video-play {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+
+.lesson-video-progress {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.3);
+  overflow: hidden;
+}
+
+.lesson-video-progress-bar {
+  width: 15%;
+  height: 100%;
+  background-color: #f97316;
+}
+
+.lesson-video-time {
+  min-width: 80px;
+  text-align: right;
+}
+
+/* ===== CURRENT TITLE + META + PROGRESS ===== */
+
+.lesson-info-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.lesson-current-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.lesson-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.lesson-meta-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background-color: #d1d5db;
+}
+
+/* Progress bên phải */
+
+.lesson-progress-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lesson-progress-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 3px solid #f97316;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #f97316;
+}
+
+.lesson-progress-text {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+/* ===== DESCRIPTION CARD ===== */
+
+.lesson-description-card {
+  margin-top: 4px;
+  padding: 20px 24px 24px;
+  border-radius: 16px;
+  background-color: #f9fafb;
+}
+
+.lesson-description-title {
+  font-size: 15px;
   font-weight: 600;
   margin-bottom: 8px;
 }
 
-.ls-section-body {
-  font-size: 14px;
-  color: #555;
+.lesson-description-subtitle {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.lesson-description-text {
+  font-size: 13px;
+  color: #4b5563;
   line-height: 1.6;
-}
-
-.ls-section-body p {
   margin-bottom: 12px;
 }
 
-.ls-bullet-list {
-  padding-left: 18px;
-  margin-bottom: 12px;
-}
-
-.ls-bullet-list li {
-  margin-bottom: 6px;
-}
-
-.ls-see-more-btn {
-  margin-top: 4px;
+.lesson-description-more {
   border: none;
   background: transparent;
-  color: #dd673c;
+  color: #f97316;
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
 }
 
-/* ===== Sidebar ===== */
-.ls-sidebar {
-  position: fixed;
-  top: 64px; /* dưới header */
-  right: 0;
-  bottom: 0;
-  width: 320px;
-  max-width: 100%;
-  background: #fff;
-  box-shadow: -8px 0 20px rgba(0, 0, 0, 0.08);
-  transform: translateX(100%);
-  transition: transform 0.25s ease;
-  z-index: 40;
-  display: flex;
+/* ===== SIDEBAR ĐẦY ĐỦ ===== */
+
+.lesson-sidebar {
+  width: 360px;
+  background-color: #ffffff;
+  border-left: 1px solid #f3f4f6; /* giống đường kẻ chia cột trong ảnh */
+  border-radius: 0;               /* không bo góc */
+  position: sticky;
+  top: 80px;
+  max-height: calc(100vh - 100px);
+  display: flex;          /* header + content theo cột */
   flex-direction: column;
+  overflow: hidden;       /* scroll ở content, không phải cả sidebar */
 }
 
-.ls-sidebar--open {
-  transform: translateX(0);
-}
-
-.ls-sidebar-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid #f0f0f0;
-  font-size: 14px;
-  font-weight: 600;
+/* header luôn cố định khi scroll */
+.lesson-sidebar-header {
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid #f3f4f6;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  cursor: pointer; /* click để thu gọn */
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #ffffff;
 }
 
-.ls-sidebar-close {
-  border: none;
-  background: transparent;
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.ls-sidebar-body {
-  padding: 12px 12px 16px;
-  overflow-y: auto;
-  font-size: 13px;
-}
-
-.ls-session {
-  margin-bottom: 12px;
-}
-
-.ls-session-title {
-  width: 100%;
-  text-align: left;
-  border: none;
-  background: transparent;
-  font-size: 13px;
-  font-weight: 600;
-  margin-bottom: 6px;
-  cursor: pointer;
-}
-
-.ls-lesson-list {
-  border-left: 2px solid #f0f0f0;
-  padding-left: 8px;
-}
-
-.ls-lesson-item {
-  width: 100%;
-  text-align: left;
-  border: none;
-  background: transparent;
-  padding: 6px 4px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.ls-lesson-item--active {
-  background: #ffe4da;
-}
-
-.ls-lesson-item-main {
+.lesson-sidebar-title-row {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.ls-lesson-item-title {
-  font-size: 13px;
-}
-
-.ls-lesson-item-duration {
-  font-size: 11px;
-  color: #999;
-}
-
-/* ===== Nút toggle sidebar (mobile) ===== */
-.ls-sidebar-toggle {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 14px;
+}
+
+.lesson-sidebar-menu-icon {
+  font-size: 18px;
+  color: #f97316; /* cam */
+}
+
+.lesson-sidebar-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f97316; /* chữ cam giống ảnh */
+}
+
+.lesson-sidebar-collapse {
+  font-size: 14px;
+  color: #9ca3af;
+}
+
+/* nội dung: phần này mới là phần scroll */
+.lesson-sidebar-content {
+  padding: 4px 0 8px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ===== SIDEBAR THU NHỎ (thanh 56px) ===== */
+
+.lesson-sidebar--collapsed {
+  width: 56px;
+  background-color: #ffffff;      /* White */
+  border-left: 1px solid #dddddd; /* Gray/100 theo Figma */
+  position: sticky;
+  top: 80px;
+  max-height: calc(100vh - 100px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 0;
+}
+
+/* nút tròn có icon 3 gạch bên trong */
+.lesson-sidebar-collapsed-btn {
+  margin-top: 16px;
+  width: 32px;
+  height: 32px;
   border-radius: 999px;
-  border: none;
-  background: #fff;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e5e7eb;
+  background-color: #ffffff;
   cursor: pointer;
-  font-size: 13px;
-  color: #dd673c;
-  z-index: 45;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lesson-sidebar--collapsed .lesson-sidebar-menu-icon {
+  font-size: 18px;
+  color: #f97316;
+}
+
+/* ===== SESSION (cấp 1) ===== */
+
+.ls-section {
+  padding: 8px 0 4px;
+}
+
+.ls-section-header {
+  padding-top: 1px;
+  padding-bottom: 2px;
+  padding-right: 20px;
+  padding-left: 35px; /* lùi nhẹ so với tiêu đề sidebar */
+  font-size: 16px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer; /* click để ẩn/hiện lesson */
+}
+
+.ls-section-name {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.ls-section-title {
+  font-weight: 600;
+}
+
+.ls-section-chevron {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* ===== LESSON (cấp 2) ===== */
+
+.ls-lesson-block {
+  padding-bottom: 4px;
+}
+
+.ls-lesson-title {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-right: 20px;
+  padding-left: 45px; /* sâu hơn session */
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer; /* click để ẩn/hiện items */
+}
+
+.ls-lesson-chevron {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* ===== ITEM (cấp 3: bài trong lesson) ===== */
+
+.ls-items {
+  margin-top: 2px;
+}
+
+.ls-item-row {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  padding-right: 20px;
+  padding-left: 44px; /* sâu hơn lesson */
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ls-item-row:hover {
+  background-color: #f9fafb;
+}
+
+/* item đang chọn: nền cam nhạt + vạch cam bên trái (giống ảnh) */
+.ls-item-row.is-active {
+  background-color: #fff3ec;
+  box-shadow: inset 3px 0 0 #f97316;
+}
+
+.ls-item-icon-col {
+  margin-top: 2px;
 }
 
 .ls-icon {
   flex-shrink: 0;
 }
 
-/* ===== Desktop layout ===== */
-@media (min-width: 1024px) {
-  .ls-layout {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-
-  .ls-main {
-    flex: 1;
-  }
-
-  .ls-sidebar {
-    position: sticky;
-    transform: none;
-    top: 72px;
-    right: auto;
-    bottom: auto;
-    width: 320px;
-    max-height: calc(100vh - 96px);
-    box-shadow: none;
-    border-radius: 16px;
-    border: 1px solid #f0f0f0;
-  }
-
-  .ls-sidebar-toggle {
-    display: none;
-  }
+.ls-item-main {
+  flex: 1;
 }
-.ls-sidebar-title {
+
+.ls-item-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #111827;
+}
+
+/* ===== META: “Video • 10:34” ===== */
+
+.ls-item-meta {
+  margin-top: 4px;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: center; /* canh giữa theo chiều dọc */
+  gap: 4px;
+  font-size: 11px;
+  color: #6b7280;
 }
 
-.ls-sidebar-title .ls-icon {
-  flex-shrink: 0;
-}
-/* Chữ "Danh sách bài học" màu cam */
-.ls-sidebar-title-text {
-  color: #dd673c;
-  font-weight: 600;
-  font-size: 14px;
-}
-/* layout 2 cột: main + sidebar */
-.ls-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px; /* sidebar full */
-  gap: 24px;
+/* time wrapper: icon + text thời gian ngang hàng với meta */
+.ls-time-wrapper {
+  display: inline-flex;  /* icon + text trên cùng 1 hàng */
+  align-items: center;   /* canh giữa icon với chữ */
+  gap: 4px;
 }
 
-/* Khi thu gọn: sidebar chỉ còn khoảng 56px */
-.ls-layout--collapsed {
-  grid-template-columns: minmax(0, 1fr) 56px;
+/* thu nhỏ icon đồng hồ cho đỡ lệch dòng */
+.ls-time-wrapper .ls-icon {
+  width: 12px;
+  height: 12px;
 }
 
-/* Sidebar chung */
-.ls-sidebar {
-  background: #fff;
-  border-left: 1px solid #eee;
-  min-height: 100%;
-  transition: all 0.25s ease;
+/* chữ thời gian gọn, không bị cao hơn dòng */
+.ls-time-text {
+  line-height: 1;
 }
 
-/* Header của sidebar */
-.ls-sidebar-header {
-  height: 56px;
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-}
-
-/* nút chứa icon 3 gạch + text */
-.ls-sidebar-toggle-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: none;
-  background: transparent;
+/* bỏ pill, chỉ để chữ phẳng như ảnh */
+.ls-badge,
+.ls-badge-video {
   padding: 0;
-  cursor: pointer;
+  border-radius: 0;
+  background-color: transparent;
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 400;
 }
 
-/* chữ "Danh sách bài học" màu cam */
-.ls-sidebar-title-text {
-  color: #dd673c;
-  font-weight: 600;
-  font-size: 14px;
+.ls-item-meta-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background-color: #d1d5db;
 }
 
-/* Khi sidebar đã thu gọn:
-   - ẩn chữ
-   - icon nằm giữa cột hẹp */
-.ls-sidebar--collapsed .ls-sidebar-title-text {
+/* cột status bên phải không xuất hiện trong ảnh nên ẩn đi */
+.ls-item-status {
   display: none;
 }
 
-.ls-sidebar--collapsed .ls-sidebar-header {
-  justify-content: center;
-  padding: 0; /* cột hẹp, khỏi padding ngang */
+/* ===== RESPONSIVE nhỏ hơn 1200px thì co lại ===== */
+
+@media (max-width: 1200px) {
+  .lesson-layout,
+  .lesson-layout.sidebar-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lesson-sidebar,
+  .lesson-sidebar--collapsed {
+    width: 100%;
+    position: static;
+    max-height: none;
+    margin-top: 16px;
+    border-left: none;
+    border-top: 1px solid #f3f4f6;
+  }
+
+  .lesson-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+/* ================================
+   ESSAY MODE – NỘI DUNG BÊN TRÁI
+   ================================ */
+
+/* Nếu muốn phân biệt mode essay, bạn có thể thêm class lesson-left--essay
+   vào div bên trái: <div className="lesson-left lesson-left--essay">...
+   (không bắt buộc, nhưng gọn hơn nếu sau này cần tùy biến thêm) */
+.lesson-left--essay {
+  margin-top: 4px;
 }
 
-/* body: giữ nguyên style cũ của bạn */
-.ls-sidebar-body {
-  padding: 8px 16px 16px;
-  overflow-y: auto;
-  max-height: calc(100vh - 56px - 80px); /* ví dụ */
+/* Tiêu đề lớn của bài (dòng chữ đậm to ở trên cùng) */
+.lesson-essay-title-main {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+/* Hàng meta ngay dưới tiêu đề: icon đồng hồ + ngày tháng */
+.lesson-essay-meta-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 20px;
+}
+
+.lesson-essay-meta-top svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Khung xám nhạt chứa "1. Mục tiêu / 2. Mô tả / 3. Đánh giá..." */
+.lesson-essay-card {
+  margin-top: 8px;
+  padding: 24px 28px;
+  border-radius: 16px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0px 18px 40px rgba(15, 23, 42, 0.04);
+}
+
+/* Heading từng mục (1. Mục tiêu, 2. Mô tả, 3. Đánh giá) */
+.lesson-essay-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+/* Sub heading / câu mô tả ngắn dưới tiêu đề mục */
+.lesson-essay-section-subtitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+/* Đoạn text nội dung */
+.lesson-essay-text {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #4b5563;
+  margin-bottom: 12px;
+}
+
+/* Danh sách bullet giống trong ảnh */
+.lesson-essay-list {
+  margin: 4px 0 12px 18px;
+  padding: 0;
+}
+
+.lesson-essay-list li {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #4b5563;
+}
+
+/* Dòng liên hệ / email cuối card */
+.lesson-essay-contact {
+  font-size: 13px;
+  color: #4b5563;
+  margin-top: 8px;
+}
+
+/* Hàng chứa nút Nộp bài ở bên dưới */
+.lesson-essay-submit-row {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+/* Nút Nộp bài màu cam, bo tròn, giống Figma */
+.lesson-essay-submit-btn {
+  min-width: 140px;
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 999px;
+  border: none;
+  background-color: #f97316;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0px 10px 25px rgba(249, 115, 22, 0.35);
+}
+
+.lesson-essay-submit-btn:hover {
+  background-color: #ea580c;
+}
+
+/* Icon mũi tên upload trắng trong nút */
+.lesson-essay-submit-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Essay responsive giống phần left hiện tại */
+@media (max-width: 1200px) {
+  .lesson-essay-card {
+    padding: 20px 18px;
+  }
+
+  .lesson-essay-title-main {
+    font-size: 20px;
+  }
+}
+/* ===================== POPUP NỘP BÀI ===================== */
+
+/* Lớp phủ mờ toàn màn hình */
+.lesson-submit-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45); /* nền đen mờ */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+/* Hộp popup chính */
+.lesson-submit-modal {
+  width: 640px;
+  max-width: calc(100% - 32px);
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter",
+    "Segoe UI", sans-serif;
+}
+
+/* Header */
+.lesson-submit-modal-header {
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.lesson-submit-modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Thân form */
+.lesson-submit-modal-body {
+  padding: 12px 24px 16px;
+}
+
+.lesson-submit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.lesson-submit-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+/* Input text */
+.lesson-submit-input {
+  width: 100%;
+  height: 40px;
+  padding: 8px 10px;
+  font-size: 14px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  outline: none;
+  color: #111827;
+  background-color: #ffffff;
+}
+
+.lesson-submit-input::placeholder {
+  color: #9ca3af;
+}
+
+.lesson-submit-input:focus {
+  border-color: #f97316;
+  box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.15);
+}
+
+/* Nút đính kèm file */
+.lesson-submit-attach-btn {
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px dashed #d1d5db;
+  background-color: #f9fafb;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+}
+
+.lesson-submit-attach-btn:hover {
+  background-color: #f3f4f6;
+}
+
+/* Footer nút Hủy / Nộp bài */
+.lesson-submit-modal-footer {
+  padding: 12px 24px 20px;
+  border-top: 1px solid #f3f4f6;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.lesson-submit-btn {
+  min-width: 110px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+/* Nút Hủy */
+.lesson-submit-btn-cancel {
+  border-color: #e5e7eb;
+  background-color: #ffffff;
+  color: #374151;
+}
+
+.lesson-submit-btn-cancel:hover {
+  background-color: #f9fafb;
+}
+
+/* Nút Nộp bài (cam) */
+.lesson-submit-btn-primary {
+  background-color: #f97316;
+  color: #ffffff;
+}
+
+.lesson-submit-btn-primary:hover {
+  background-color: #ea580c;
+}
+
+/* Icon mũi tên trong nút Nộp bài */
+.lesson-submit-btn-primary .lesson-essay-upload-icon {
+  margin-right: 2px;
+}
+
+/* Cho mobile nhỏ hơn chút: popup co lại */
+@media (max-width: 640px) {
+  .lesson-submit-modal {
+    width: 100%;
+    max-width: calc(100% - 16px);
+  }
 }
