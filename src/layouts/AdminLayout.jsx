@@ -14,6 +14,8 @@ import {
   SearchOutlined,
   BellOutlined,
   UserOutlined,
+  SettingOutlined,
+  LogoutOutlined
 } from "@ant-design/icons"; // Đã xoá bớt các icon thừa (Schedule, PlayCircle...)
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 
@@ -41,10 +43,10 @@ export default function AdminLayout() {
       key: "/admin/courses",
       icon: <BookOutlined />,
       label: "Quản lý khóa học", 
-      // 💡 Workflow chuẩn: Vào đây -> Chọn khóa -> Sửa nội dung (Session/Lesson)
+      
     },
     
-    // ❌ ĐÃ XOÁ: Quản lý Session & Lesson (Vì đã quản lý bên trong Course)
+    
 
     {
       key: "question-banks-group",
@@ -69,7 +71,7 @@ export default function AdminLayout() {
       label: "Quản lý bài viết",
     },
     {
-      key: "user-management-group", // Group key
+      key: "user-management-group", 
       icon: <TeamOutlined />,
       label: "Quản lý người dùng",
       children: [
@@ -85,12 +87,51 @@ export default function AdminLayout() {
     },
   ];
 
+  const handleUserMenuClick = ({ key }) => {
+    switch (key) {
+      case "profile":
+        navigate("/admin/profile");
+        break;
+      case "settings":
+        navigate("/admin/settings");
+        break;
+      case "logout":
+        // Xử lý đăng xuất ở đây
+        // Ví dụ: Xóa token trong localStorage
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("user");
+        
+        // Chuyển hướng về trang login
+        navigate("/login"); 
+        break;
+      default:
+        break;
+    }
+  };
+
   const userMenu = {
     items: [
-      { key: "profile", label: "Profile" },
-      { key: "settings", label: "Settings" },
-      { key: "logout", label: "Logout" },
+      { 
+        key: "profile", 
+        label: "Hồ sơ cá nhân", 
+        icon: <UserOutlined /> 
+      },
+      { 
+        key: "settings", 
+        label: "Cài đặt", 
+        icon: <SettingOutlined /> 
+      },
+      { 
+        type: "divider" 
+      },
+      { 
+        key: "logout", 
+        label: "Đăng xuất", 
+        icon: <LogoutOutlined />, 
+        danger: true // Màu đỏ cảnh báo
+      },
     ],
+    onClick: handleUserMenuClick, // Gắn hàm xử lý sự kiện
   };
 
   const handleMenuClick = (info) => {
@@ -106,6 +147,7 @@ export default function AdminLayout() {
     item.children ? item.children.map((c) => c.key) : item.key
   );
 
+  
   const matchedKey =
     flatKeys
       .filter((key) => typeof key === "string")

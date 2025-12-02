@@ -58,6 +58,9 @@ export default function ClassManagement() {
       const values = await form.validateFields();
       const payload = {
         ...values,
+        // 👇 THÊM 2 DÒNG NÀY: Gửi mảng rỗng mặc định
+        courseIds: [], 
+        teacherIds: [],
         start_date: values.start_date ? values.start_date.format("YYYY-MM-DD") : null,
         end_date: values.end_date ? values.end_date.format("YYYY-MM-DD") : null,
       };
@@ -73,7 +76,7 @@ export default function ClassManagement() {
       fetchAllData();
     } catch (error) { console.error(error); }
   };
-
+  
   const handleDelete = async (id) => {
     try {
       await ClassApi.delete(id);

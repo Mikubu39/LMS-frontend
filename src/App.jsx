@@ -13,18 +13,21 @@ import Posts from "./pages/Posts.jsx";
 import PostDetail from "./pages/PostDetail.jsx";
 import RequireAuth from "./pages/auth/RequireAuth.jsx";
 import SearchPage from "./pages/Search.jsx"
+import AdminProfile from "./pages/admin/AdminProfile";   
+import AdminSettings from "./pages/admin/AdminSettings";
 // ===== ADMIN PAGES =====
 import AdminLayout from "./layouts/AdminLayout.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import CourseManagement from "./pages/admin/CourseManagement.jsx";
-import CourseManager from "./pages/admin/CourseManager.jsx";    // 👈 trang quản lý 1 khoá
-import PostManagement from "./pages/admin/PostManagement.jsx";   // 👈 quản lý bài viết
+import CourseManager from "./pages/admin/CourseManager.jsx";    
+import PostManagement from "./pages/admin/PostManagement.jsx";   
 import QuestionManager from "./pages/admin/QuestionManager.jsx";
 import QuizManager from "./pages/admin/QuizManager.jsx"
 import ClassManagement from "./pages/admin/ClassManagement.jsx";
 import ClassDetail from "./pages/admin/ClassDetail.jsx"
 import StudentManager from "./pages/admin/StudentManager.jsx";
 import TeacherManager from "./pages/admin/TeacherManager.jsx";
+
 // ===== TEACHER =====
 import TeacherDashboard from "./pages/teacher/TeacherDashboard.jsx";
 
@@ -102,6 +105,8 @@ export default function App() {
               <Route path="students" element={<StudentManager />} />
               <Route path="teachers" element={<TeacherManager />} />
               {/* sau này thêm: /admin/classes, /admin/users,... */}
+              <Route path="profile" element={<AdminProfile />} />
+              <Route path="settings" element={<AdminSettings />} />
             </Route>
           </Route>
 

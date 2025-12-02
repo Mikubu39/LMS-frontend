@@ -3,19 +3,24 @@ import { useParams, useNavigate } from "react-router-dom";
 import { 
   Tabs, Table, Button, Card, 
   Tag, message, Modal, Select, Spin, 
-  Popconfirm, Input, Avatar, Empty, List, Upload, Tooltip 
+  Popconfirm, Input, Avatar, Empty, List, Upload, Tooltip, 
+  Breadcrumb, Typography, Space, Descriptions, Statistic, Divider, Dropdown,
+  notification
 } from "antd";
 import { 
   UserAddOutlined, ArrowLeftOutlined, 
   TeamOutlined, BookOutlined, DeleteOutlined,
-  SearchOutlined, ExportOutlined, UserOutlined, 
+  SearchOutlined, UserOutlined, 
   UploadOutlined, PlusOutlined, ReadOutlined,
-  TrophyOutlined, EditOutlined, FilterOutlined, 
-  ManOutlined, WomanOutlined, IdcardOutlined 
+  TrophyOutlined, EditOutlined, 
+  ManOutlined, WomanOutlined, 
+  MoreOutlined, FileExcelOutlined, CalendarOutlined,
+  CheckCircleOutlined, SyncOutlined
 } from "@ant-design/icons";
 import moment from "moment";
 import * as XLSX from 'xlsx'; 
 
+// Import đúng các API bạn đã cung cấp
 import { ClassApi } from "@/services/api/classApi";
 import { UserApi } from "@/services/api/userApi";
 import { CourseApi } from "@/services/api/courseApi"; 
@@ -23,21 +28,51 @@ import { CourseApi } from "@/services/api/courseApi";
 import ClassQuizTab from "../../components/ClassQuizTab";
 import ClassEssayTab from "../../components/ClassEssayTab";
 
+const { Title, Text } = Typography;
+const { Option } = Select;
+
+// ✅ HÀM HELPER: Lấy TÊN (Chữ cuối cùng) để sắp xếp
+const getFirstName = (fullName) => {
+  if (!fullName) return "";
+  const parts = fullName.trim().split(" ");
+  return parts[parts.length - 1].toLowerCase();
+};
+
+// ✅ HÀM HELPER: Sắp xếp danh sách theo TÊN (A-Z)
+const sortByName = (list) => {
+  return [...list].sort((a, b) => 
+    getFirstName(a.full_name).localeCompare(getFirstName(b.full_name))
+  );
+};
+
 export default function ClassDetail() {
   const { classId } = useParams();
   const navigate = useNavigate();
   
+  // Data State
   const [classInfo, setClassInfo] = useState(null);
   const [students, setStudents] = useState([]); 
   const [loading, setLoading] = useState(false);
   
   // Tab States
+  const [activeTab, setActiveTab] = useState('1');
+
+  // Course & Teacher Data State
   const [allCourses, setAllCourses] = useState([]);
   const [allTeachers, setAllTeachers] = useState([]);
+  const [selectedCourseId, setSelectedCourseId] = useState(null);
+  
+  // Modal States
   const [isAddCourseModal, setIsAddCourseModal] = useState(false);
   const [isAddTeacherModal, setIsAddTeacherModal] = useState(false);
-  const [selectedIdsToAdd, setSelectedIdsToAdd] = useState([]);
-  const [selectedCourseId, setSelectedCourseId] = useState(null);
+  
+  const [courseSearchTerm, setCourseSearchTerm] = useState("");
+  const [selectedCourseKeys, setSelectedCourseKeys] = useState([]);
+  
+  const [teacherSearchTerm, setTeacherSearchTerm] = useState("");
+  const [selectedTeacherKeys, setSelectedTeacherKeys] = useState([]);
+
+  // Search Text for Students Tab
   const [searchText, setSearchText] = useState('');
 
   // Add Student Modal State
@@ -61,7 +96,8 @@ export default function ClassDetail() {
         ClassApi.getStudents(classId)
       ]);
       setClassInfo(info);
-      setStudents(studentList || []);
+      // Sắp xếp học sinh theo tên ngay khi load
+      setStudents(sortByName(studentList || []));
     } catch (error) { message.error("Lỗi tải trang chi tiết"); } 
     finally { setLoading(false); }
   };
@@ -74,20 +110,45 @@ export default function ClassDetail() {
     }
   }, [classInfo]);
 
-  // --- MODAL THÊM HỌC VIÊN ---
+  // ============================================================
+  // 1. HANDLERS: HỌC VIÊN (Logic Độc Quyền & Sắp xếp Tên)
+  // ============================================================
+  
   const handleOpenAddStudentModal = async () => {
     setIsAddStudentModal(true);
     setAddingStudents(true); 
     try {
-        const res = await UserApi.getAll({ role: 'student', limit: 1000 });
-        const existingIds = students.map(s => s.student_id);
-        const availableStudents = res.filter(u => !existingIds.includes(u.user_id));
+        // 1. Lấy tất cả học sinh
+        const allStudents = await UserApi.getAll({ role: 'student', limit: 1000 });
         
-        setAllStudentsPool(availableStudents);
+        // 2. Lấy TẤT CẢ các lớp học
+        const allClasses = await ClassApi.getAll();
+
+        // 3. Loại trừ lớp hiện tại
+        const otherClasses = allClasses.filter(c => c.class_id !== classId);
+
+        // 4. Tìm những học sinh đang ở trong các lớp khác
+        // (Bất kể lớp active hay finished, đã ở lớp khác là không hiện ra)
+        const busyPromises = otherClasses.map(c => ClassApi.getStudents(c.class_id));
+        const busyResults = await Promise.all(busyPromises);
+        
+        const busyStudentIds = new Set();
+        busyResults.flat().forEach(s => busyStudentIds.add(s.student_id));
+        
+        // Thêm cả học sinh đã có trong lớp hiện tại để không hiện trùng
+        students.forEach(s => busyStudentIds.add(s.student_id));
+
+        // 5. Lọc danh sách khả dụng
+        const availableStudents = allStudents.filter(u => !busyStudentIds.has(u.user_id));
+        
+        // Sắp xếp theo tên
+        setAllStudentsPool(sortByName(availableStudents));
+        
         setSelectedStudentKeys([]); 
         setStudentSearchText("");
     } catch (error) {
-        message.error("Lỗi tải danh sách học viên");
+        console.error(error);
+        message.error("Lỗi tải danh sách học viên khả dụng");
     } finally {
         setAddingStudents(false);
     }
@@ -97,15 +158,33 @@ export default function ClassDetail() {
     if (selectedStudentKeys.length === 0) return message.warning("Chưa chọn học viên nào");
     setAddingStudents(true);
     try {
-      await Promise.all(selectedStudentKeys.map(id => ClassApi.addStudent(classId, id)));
-      message.success(`Đã thêm ${selectedStudentKeys.length} học viên vào lớp`);
+      const results = await Promise.allSettled(
+        selectedStudentKeys.map(id => ClassApi.addStudent(classId, id))
+      );
+
+      const successCases = results.filter(r => r.status === 'fulfilled');
+      const failedCases = results.filter(r => r.status === 'rejected');
+
+      if (successCases.length > 0) message.success(`Đã thêm ${successCases.length} học viên`);
+      
+      if (failedCases.length > 0) {
+        const errorDetails = failedCases.map(f => f.reason?.response?.data?.message || "Lỗi không xác định");
+        notification.warning({
+          message: `Không thể thêm ${failedCases.length} học viên`,
+          description: <ul style={{paddingLeft:20}}>{errorDetails.map((m,i)=><li key={i}>{m}</li>)}</ul>,
+          duration: 6,
+        });
+      }
+
       setIsAddStudentModal(false);
-      fetchClassData();
-    } catch (err) { message.error("Có lỗi xảy ra khi thêm học viên"); } 
-    finally { setAddingStudents(false); }
+      fetchClassData(); 
+    } catch (err) { 
+        message.error("Có lỗi hệ thống xảy ra"); 
+    } finally { 
+        setAddingStudents(false); 
+    }
   };
 
-  // Search trong Modal
   const filteredStudentPool = useMemo(() => {
     if (!studentSearchText) return allStudentsPool;
     const lower = studentSearchText.toLowerCase();
@@ -113,11 +192,10 @@ export default function ClassDetail() {
         s.full_name?.toLowerCase().includes(lower) || 
         s.email?.toLowerCase().includes(lower) ||
         (s.phone && s.phone.includes(lower)) ||
-        (s.student_code && s.student_code.toLowerCase().includes(lower)) // 👈 Search theo Mã SV
+        (s.student_code && s.student_code.toLowerCase().includes(lower))
     );
   }, [allStudentsPool, studentSearchText]);
 
-  // --- HANDLERS KHÁC ---
   const handleRemoveStudent = async (id) => {
     try {
       await ClassApi.removeStudent(classId, id);
@@ -126,17 +204,21 @@ export default function ClassDetail() {
     } catch (error) { message.error("Lỗi khi xóa"); }
   };
 
+  // --- EXCEL HANDLERS ---
   const handleExportExcel = () => {
     if (students.length === 0) return message.warning("Danh sách trống");
-    const data = students.map((s, idx) => ({
+    
+    // Xuất excel cũng sort theo tên
+    const sortedData = sortByName(students);
+
+    const data = sortedData.map((s, idx) => ({
       STT: idx + 1,
       "Mã SV": s.student_code || '',
       "Họ tên": s.full_name,
+      "Tên": getFirstName(s.full_name), // Cột phụ
       "Email": s.email,
       "SĐT": s.phone || '',
       "Ngày sinh": s.dateOfBirth ? moment(s.dateOfBirth).format("DD/MM/YYYY") : '',
-      "Giới tính": s.gender || '',
-      "Địa chỉ": s.address || '',
       "Ngày tham gia": new Date(s.joined_at).toLocaleDateString(),
     }));
     const ws = XLSX.utils.json_to_sheet(data);
@@ -145,267 +227,475 @@ export default function ClassDetail() {
     XLSX.writeFile(wb, `Class_${classInfo?.code}.xlsx`);
   };
 
-  // ... (Các hàm import/export excel, add course/teacher giữ nguyên)
-  const handleExcelFile = (file) => { /* ... */ };
-  const handleImportStudents = async () => { /* ... */ };
-  const openAddCourseModal = async () => { /* ... */ };
-  const handleAddCourses = async () => { /* ... */ };
-  const handleRemoveCourse = async (id) => { /* ... */ };
-  const openAddTeacherModal = async () => { /* ... */ };
-  const handleAddTeachers = async () => { /* ... */ };
-  const handleRemoveTeacher = async (id) => { /* ... */ };
+  const handleExcelFile = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const wb = XLSX.read(data, { type: 'array' });
+          const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+          const emails = json.slice(1).map(r => r[1]?.trim()).filter(e => e && e.includes('@'));
+          setExcelEmails([...new Set(emails)]);
+          resolve();
+        } catch (err) { reject(err); }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  const handleImportStudents = async () => {
+    if (excelEmails.length === 0) return message.warning("File không có email hợp lệ");
+    setImporting(true);
+    let success = 0;
+    const errors = [];
+    try {
+       // Loop tuần tự để bắt lỗi chính xác
+       for (const email of excelEmails) {
+          try {
+             const userRes = await UserApi.getAll({ email, role: 'student', limit: 1 });
+             if (userRes?.[0]?.user_id) {
+                await ClassApi.addStudent(classId, userRes[0].user_id);
+                success++;
+             } else {
+                errors.push(`${email}: Không tìm thấy user`);
+             }
+          } catch(e) {
+             const msg = e.response?.data?.message || "Lỗi import";
+             errors.push(`${email}: ${msg}`);
+          }
+       }
+       
+       if (success > 0) message.success(`Import thành công ${success} học viên`);
+       if (errors.length > 0) {
+          notification.warning({
+             message: `Lỗi ${errors.length} trường hợp`,
+             description: <div style={{maxHeight:150, overflowY:'auto'}}>{errors.map((e,i)=><div key={i}>{e}</div>)}</div>
+          });
+       }
+
+       setIsImportModalOpen(false);
+       setExcelEmails([]);
+       fetchClassData();
+    } catch(e) { message.error("Lỗi import"); }
+    finally { setImporting(false); }
+  };
+
+  // ============================================================
+  // 2. HANDLERS: KHÓA HỌC (Đã sửa lại để dùng đúng courseApi.jsx)
+  // ============================================================
+  const openAddCourseModal = async () => {
+     setLoading(true);
+     try {
+        // Dựa vào file courseApi.jsx bạn gửi: 
+        // Hàm getCourses trả về { courses: [...], meta: ... }
+        const res = await CourseApi.getCourses({ page: 1, limit: 1000 });
+        
+        // Lấy mảng courses từ res.courses
+        const coursesData = res.courses || [];
+        
+        const currentIds = classInfo.courses ? classInfo.courses.map(c => c.id) : [];
+        setAllCourses(coursesData.filter(c => !currentIds.includes(c.id)));
+        
+        setSelectedCourseKeys([]);
+        setCourseSearchTerm("");
+        setIsAddCourseModal(true);
+     } catch(error) {
+         console.error(error);
+         message.error("Lỗi tải danh sách khóa học");
+     } finally {
+         setLoading(false);
+     }
+  };
+
+  const handleAddCourses = async () => {
+     if(selectedCourseKeys.length === 0) return message.warning("Chưa chọn khóa học nào");
+     try {
+        const newCourseIds = [...classInfo.courses.map(c => c.id), ...selectedCourseKeys];
+        const currentTeacherIds = classInfo.teachers.map(t => t.user_id);
+        
+        // ClassApi.update cần courseIds và teacherIds
+        await ClassApi.update(classId, { courseIds: newCourseIds, teacherIds: currentTeacherIds });
+        message.success("Đã thêm khóa học");
+        setIsAddCourseModal(false);
+        fetchClassData();
+     } catch(e) { message.error("Lỗi thêm khóa học"); }
+  };
+
+  const handleRemoveCourse = async (id) => {
+      try {
+        const newIds = classInfo.courses.filter(c => c.id !== id).map(c => c.id);
+        const currentTeacherIds = classInfo.teachers.map(t => t.user_id);
+        await ClassApi.update(classId, { courseIds: newIds, teacherIds: currentTeacherIds });
+        message.success("Đã gỡ khóa học");
+        fetchClassData();
+      } catch(e) { message.error("Lỗi gỡ khóa học"); }
+  };
+
+  // ============================================================
+  // 3. HANDLERS: GIẢNG VIÊN
+  // ============================================================
+  const openAddTeacherModal = async () => {
+    setLoading(true);
+    try {
+        const res = await UserApi.getAll({ role: 'teacher', limit: 1000 });
+        const currentIds = classInfo.teachers.map(t => t.user_id);
+        setAllTeachers(res.filter(t => !currentIds.includes(t.user_id)));
+        
+        setSelectedTeacherKeys([]);
+        setTeacherSearchTerm("");
+        setIsAddTeacherModal(true);
+    } catch(e) { message.error("Lỗi tải giảng viên"); }
+    finally { setLoading(false); }
+  };
+
+  const handleAddTeachers = async () => {
+    if(selectedTeacherKeys.length === 0) return message.warning("Chưa chọn giảng viên nào");
+    try {
+       const newTeacherIds = [...classInfo.teachers.map(t => t.user_id), ...selectedTeacherKeys];
+       const currentCourseIds = classInfo.courses.map(c => c.id);
+       await ClassApi.update(classId, { teacherIds: newTeacherIds, courseIds: currentCourseIds });
+       message.success("Đã thêm giảng viên");
+       setIsAddTeacherModal(false);
+       fetchClassData();
+    } catch(e) { message.error("Lỗi thêm giảng viên"); }
+ };
+
+ const handleRemoveTeacher = async (id) => {
+    try {
+        const newIds = classInfo.teachers.filter(t => t.user_id !== id).map(t => t.user_id);
+        const currentCourseIds = classInfo.courses.map(c => c.id);
+        await ClassApi.update(classId, { teacherIds: newIds, courseIds: currentCourseIds });
+        message.success("Đã gỡ giảng viên");
+        fetchClassData();
+    } catch(e) { message.error("Lỗi gỡ giảng viên"); }
+ };
 
   // --- TABLE COLUMNS CONFIG ---
-
-  // Search trong Bảng Chính
   const filteredStudents = students.filter(s => 
     s.full_name?.toLowerCase().includes(searchText.toLowerCase()) || 
     s.email?.toLowerCase().includes(searchText.toLowerCase()) ||
     (s.student_code && s.student_code.toLowerCase().includes(searchText.toLowerCase()))
   );
   
-  // 1. CẤU HÌNH BẢNG HỌC VIÊN CHÍNH (ĐÃ THÊM CỘT MÃ SV)
   const studentColumns = [
     {
-        title: 'Mã SV', // 👈 CỘT MỚI
-        dataIndex: 'student_code',
-        width: 100,
-        render: (code) => code ? <Tag color="blue" icon={<IdcardOutlined />}>{code}</Tag> : <span style={{color:'#ccc'}}>--</span>
-    },
-    { 
-        title: 'Họ và tên', 
-        width: 200,
+        title: 'Sinh viên',
         dataIndex: 'full_name',
+        fixed: 'left',
+        width: 250,
+        // Sorter theo Tên
+        sorter: (a, b) => getFirstName(a.full_name).localeCompare(getFirstName(b.full_name)),
+        defaultSortOrder: 'ascend',
         render: (t, r) => (
            <div style={{display:'flex', gap:12, alignItems:'center'}}>
-              <Avatar src={r.avatar} icon={<UserOutlined/>} style={{backgroundColor:'#87d068'}}/>
-              <div style={{fontWeight:600}}>{t}</div>
+              <Avatar src={r.avatar} icon={<UserOutlined/>} style={{backgroundColor:'#1890ff', flexShrink: 0}} size="large"/>
+              <div>
+                 <div style={{fontWeight:600, fontSize: '14px'}}>{t}</div>
+                 <Tag color="blue" bordered={false} style={{marginRight:0}}>{r.student_code || 'N/A'}</Tag>
+              </div>
            </div>
         )
     },
     { 
-        title: 'Email', 
-        dataIndex: 'email', 
-        width: 180,
-        render: t => <div style={{fontSize:12, color:'#666'}}>{t}</div>
-    },
-    { 
-        title: 'Giới tính', 
-        dataIndex: 'gender', 
-        width: 90,
-        align: 'center',
-        render: (g) => {
-            if(g === 'Nam') return <Tag color="cyan" icon={<ManOutlined />}>Nam</Tag>;
-            if(g === 'Nữ') return <Tag color="magenta" icon={<WomanOutlined />}>Nữ</Tag>;
-            return <Tag>{g || '--'}</Tag>;
-        }
-    },
-    { 
-        title: 'Ngày sinh', 
-        dataIndex: 'dateOfBirth', 
-        width: 110,
-        render: d => d ? moment(d).format("DD/MM/YYYY") : '--' 
-    },
-    { 
-        title: 'Liên hệ', 
+        title: 'Thông tin liên hệ', 
         key: 'contact',
-        width: 180,
+        width: 250,
         render: (_, r) => (
-            <div style={{fontSize: 13}}>
-                <div>📞 {r.phone || '--'}</div>
-                <Tooltip title={r.address}>
-                    <div style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth: 160, color:'#666'}}>
-                        🏠 {r.address || '--'}
-                    </div>
-                </Tooltip>
+            <Space direction="vertical" size={2} style={{fontSize: 13}}>
+                <Text copyable={{text: r.email}} type="secondary">{r.email}</Text>
+                {r.phone && <Text type="secondary">📞 {r.phone}</Text>}
+            </Space>
+        )
+    },
+    { 
+        title: 'Chi tiết',
+        width: 200,
+        render: (_, r) => (
+          <Space direction="vertical" size={2} style={{fontSize: 13}}>
+            <div>
+              {r.gender === 'Nam' ? <ManOutlined style={{color: '#1890ff'}}/> : <WomanOutlined style={{color: '#eb2f96'}}/>} 
+              <span style={{marginLeft: 5}}>{r.dateOfBirth ? moment(r.dateOfBirth).format("DD/MM/YYYY") : '--'}</span>
             </div>
+            {r.address && <Tooltip title={r.address}><div style={{maxWidth: 180, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', color:'#888'}}>🏠 {r.address}</div></Tooltip>}
+          </Space>
         )
     },
     { 
         title: 'Thao tác', 
-        align: 'right', 
+        align: 'center', 
+        fixed: 'right',
+        width: 100,
         render: (_, r) => (
-           <Popconfirm title="Xóa khỏi lớp?" onConfirm={() => handleRemoveStudent(r.student_id)} okButtonProps={{danger:true}}>
-              <Button size="small" danger icon={<DeleteOutlined/>}>Xóa</Button>
+           <Popconfirm title="Xóa học viên khỏi lớp này?" onConfirm={() => handleRemoveStudent(r.student_id)} okButtonProps={{danger:true}}>
+              <Button type="text" danger icon={<DeleteOutlined/>}></Button>
            </Popconfirm>
         )
     }
   ];
 
-  // 2. CẤU HÌNH BẢNG CHỌN HỌC VIÊN (MODAL) (ĐÃ THÊM CỘT MÃ SV)
   const addStudentColumns = [
-    {
-        title: 'Mã SV', // 👈 CỘT MỚI
-        dataIndex: 'student_code',
-        width: 100,
-        render: (code) => code ? <span style={{color:'#1890ff', fontWeight:600}}>{code}</span> : '--'
-    },
-    {
-        title: 'Họ tên',
-        dataIndex: 'full_name',
-        render: (text, r) => (
-            <div style={{display:'flex', gap: 10, alignItems:'center'}}>
-                <Avatar src={r.avatar} icon={<UserOutlined />} size="small" />
-                <div style={{fontWeight: 500}}>{text}</div>
-            </div>
-        )
-    },
+    { title: 'Mã SV', dataIndex: 'student_code', width: 100, render: (c) => <Tag>{c}</Tag> },
     { 
-        title: 'Email',
-        dataIndex: 'email',
-        render: t => <span style={{fontSize:12, color:'#666'}}>{t}</span>
+      title: 'Họ tên', 
+      dataIndex: 'full_name', 
+      sorter: (a, b) => getFirstName(a.full_name).localeCompare(getFirstName(b.full_name)),
+      render: (t, r) => <Space><Avatar src={r.avatar} size="small" />{t}</Space> 
     },
-    { 
-        title: 'Ngày sinh', 
-        dataIndex: 'dateOfBirth', 
-        width: 100,
-        render: d => d ? moment(d).format("DD/MM/YYYY") : '--'
-    },
+    { title: 'Email', dataIndex: 'email', className: 'text-secondary' },
   ];
 
-  if (loading) return <div style={{height: '100vh', display:'flex', justifyContent:'center', alignItems:'center'}}><Spin size="large" /></div>;
-
-  // --- TABS CONFIG ---
-  const mainTabItems = [
-    {
-      key: '1',
-      label: <span><TeamOutlined /> Học viên ({students.length})</span>,
-      children: (
-        <div style={{padding: 24}}>
-          <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: 16}}>
-            {/* 👇 CẬP NHẬT PLACEHOLDER */}
-            <Input placeholder="Tìm theo Tên, Mã SV, Email..." prefix={<SearchOutlined />} style={{width: 350}} onChange={e => setSearchText(e.target.value)} />
-            <div style={{display:'flex', gap: 10}}>
-                <Button icon={<ExportOutlined/>} onClick={handleExportExcel}>Xuất Excel</Button>
-                <Button icon={<UploadOutlined/>} onClick={() => setIsImportModalOpen(true)}>Import Excel</Button>
-                <Button type="primary" icon={<UserAddOutlined />} onClick={handleOpenAddStudentModal}>Thêm học viên</Button>
-            </div>
-          </div>
-          <Table 
-            dataSource={filteredStudents} 
-            columns={studentColumns} 
-            rowKey="student_id" 
-            pagination={{ pageSize: 8 }} 
-            scroll={{ x: 1000 }}
-          />
-        </div>
-      )
-    },
-    {
-        key: '2',
-        label: <span><ReadOutlined /> Khóa học ({classInfo?.courses?.length || 0})</span>,
-        children: (
-          <div style={{padding: 24}}>
-              <Button type="primary" icon={<PlusOutlined />} style={{marginBottom: 16}} onClick={openAddCourseModal}>Thêm khóa học</Button>
-              <List grid={{ gutter: 16, column: 1 }} dataSource={classInfo?.courses || []} renderItem={item => (
-                  <List.Item>
-                      <Card size="small" title={item.title} extra={
-                          <Popconfirm title="Gỡ khóa học?" onConfirm={() => handleRemoveCourse(item.id)}>
-                              <Button danger size="small" type="text" icon={<DeleteOutlined />}>Gỡ bỏ</Button>
-                          </Popconfirm>
-                      }><Tag>{item.code}</Tag></Card>
-                  </List.Item>
-              )} />
-          </div>
-        )
-      },
-      {
-        key: '3',
-        label: <span><UserOutlined /> Giảng viên ({classInfo?.teachers?.length || 0})</span>,
-        children: (
-          <div style={{padding: 24}}>
-              <Button type="primary" icon={<PlusOutlined />} style={{marginBottom: 16}} onClick={openAddTeacherModal}>Thêm giảng viên</Button>
-                <List grid={{ gutter: 16, column: 2 }} dataSource={classInfo?.teachers || []} renderItem={item => (
-                  <List.Item>
-                      <Card size="small">
-                          <List.Item.Meta avatar={<Avatar src={item.avatar} icon={<UserOutlined />} />} title={item.full_name} description={item.email} />
-                          <div style={{textAlign:'right'}}><Popconfirm title="Gỡ GV?" onConfirm={() => handleRemoveTeacher(item.user_id)}><Button danger size="small" icon={<DeleteOutlined />}>Gỡ bỏ</Button></Popconfirm></div>
-                      </Card>
-                  </List.Item>
-              )} />
-          </div>
-        )
-      },
-      {
-        key: '4',
-        label: <span><BookOutlined /> Giáo trình & Điểm số</span>,
-        children: (
-          <div style={{display: 'flex', flexDirection: 'column'}}>
-              {classInfo?.courses?.length > 0 && (
-                  <div style={{padding: '16px 24px', background: '#fafafa', borderBottom: '1px solid #f0f0f0'}}>
-                      <span style={{marginRight: 12, fontWeight: 600}}>Chọn giáo trình khóa học:</span>
-                      <Select value={selectedCourseId} onChange={setSelectedCourseId} style={{width: 350}}>
-                          {classInfo.courses.map(c => <Select.Option key={c.id} value={c.id}>{c.title}</Select.Option>)}
-                      </Select>
-                  </div>
-              )}
-              {selectedCourseId ? (
-                  <div style={{padding: 24}}>
-                      <Tabs 
-                        type="card" 
-                        items={[
-                          {
-                            key: 'sub-quiz',
-                            label: <span><TrophyOutlined style={{color: '#faad14'}}/> Kết quả Quiz</span>,
-                            children: <ClassQuizTab courseId={selectedCourseId} students={students} />
-                          },
-                          {
-                            key: 'sub-essay',
-                            label: <span><EditOutlined style={{color: '#52c41a'}}/> Chấm bài Tự luận</span>,
-                            children: <ClassEssayTab courseId={selectedCourseId} students={students} />
-                          }
-                        ]}
-                      />
-                  </div>
-              ) : (
-                  <Empty description="Vui lòng chọn khóa học" style={{margin: 40}} />
-              )}
-          </div>
-        )
-      }
+  const exportItems = [
+    { key: 'export', label: 'Xuất Excel', icon: <FileExcelOutlined />, onClick: handleExportExcel },
+    { key: 'import', label: 'Import Excel', icon: <UploadOutlined />, onClick: () => setIsImportModalOpen(true) },
   ];
+
+  // --- FILTER DATA FOR NEW MODALS ---
+  const filteredCoursesPool = allCourses.filter(c => 
+      c.title.toLowerCase().includes(courseSearchTerm.toLowerCase()) ||
+      c.code.toLowerCase().includes(courseSearchTerm.toLowerCase())
+  );
+
+  const filteredTeachersPool = allTeachers.filter(t => 
+      t.full_name.toLowerCase().includes(teacherSearchTerm.toLowerCase()) ||
+      t.email.toLowerCase().includes(teacherSearchTerm.toLowerCase())
+  );
+
+  if (loading && !classInfo) return (
+    <div style={{height: '100vh', display:'flex', justifyContent:'center', alignItems:'center', background: '#f5f5f5'}}>
+      <Spin tip="Đang tải dữ liệu lớp học..." size="large" />
+    </div>
+  );
 
   return (
-    <div style={{ padding: 24, background: '#f0f2f5', minHeight: '100vh' }}>
-      <div style={{marginBottom: 16}}>
-         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/admin/classes')}>Quay lại</Button>
+    <div style={{ padding: '24px 32px', background: '#f5f7fa', minHeight: '100vh' }}>
+      {/* 1. HEADER SECTION */}
+      <div style={{ marginBottom: 24 }}>
+        <Breadcrumb items={[{title: 'Quản lý đào tạo'}, {title: 'Danh sách lớp'}, {title: classInfo?.name || 'Chi tiết lớp'}]} style={{marginBottom: 16}}/>
+        
+        {classInfo && (
+          <Card bordered={false} style={{ borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }} bodyStyle={{padding: 24}}>
+             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                <div style={{flex: 1}}>
+                    <Space align="center" style={{marginBottom: 12}}>
+                       <Button icon={<ArrowLeftOutlined />} type="text" onClick={() => navigate('/admin/classes')} />
+                       <Title level={3} style={{margin: 0}}>{classInfo.name}</Title>
+                       <Tag color="geekblue" style={{fontSize: 14, padding: '4px 10px'}}>{classInfo.code}</Tag>
+                       <Tag color={classInfo.status === 'Active' ? 'green' : 'orange'} icon={classInfo.status === 'Active' ? <CheckCircleOutlined /> : <SyncOutlined spin />}>
+                          {classInfo.status}
+                       </Tag>
+                    </Space>
+                    
+                    <Descriptions column={{ xs: 1, sm: 2, md: 4 }} size="small" style={{marginTop: 16, paddingLeft: 40}}>
+                        <Descriptions.Item label={<span style={{color:'#888'}}><CalendarOutlined/> Ngày bắt đầu</span>}>
+                          {classInfo.start_date ? moment(classInfo.start_date).format("DD/MM/YYYY") : "--"}
+                        </Descriptions.Item>
+                        <Descriptions.Item label={<span style={{color:'#888'}}><CalendarOutlined/> Ngày kết thúc</span>}>
+                          {classInfo.end_date ? moment(classInfo.end_date).format("DD/MM/YYYY") : "--"}
+                        </Descriptions.Item>
+                        <Descriptions.Item label={<span style={{color:'#888'}}>Giảng viên chính</span>}>
+                          {classInfo.teachers?.[0]?.full_name || 'Chưa gán'}
+                        </Descriptions.Item>
+                    </Descriptions>
+                </div>
+                
+                <Space size="large" split={<Divider type="vertical" height={40} />} style={{paddingLeft: 24, borderLeft: '1px solid #f0f0f0'}}>
+                    <Statistic title="Tổng Học viên" value={students.length} prefix={<TeamOutlined />} valueStyle={{fontSize: 20}} />
+                    <Statistic title="Khóa học" value={classInfo?.courses?.length || 0} prefix={<ReadOutlined />} valueStyle={{fontSize: 20}} />
+                </Space>
+             </div>
+          </Card>
+        )}
       </div>
 
-      {classInfo && (
-        <div style={{background: 'white', padding: 24, borderRadius: 8, marginBottom: 24}}>
-            <h2 style={{margin: 0}}>{classInfo.name} <Tag color="geekblue">{classInfo.code}</Tag></h2>
-            <div style={{marginTop: 8, color: '#666', display:'flex', gap: 30}}>
-                <span>📅 <b>Bắt đầu:</b> {classInfo.start_date ? moment(classInfo.start_date).format("DD/MM/YYYY") : "--"}</span>
-                <span>🏁 <b>Kết thúc:</b> {classInfo.end_date ? moment(classInfo.end_date).format("DD/MM/YYYY") : "--"}</span>
-                <Tag color={classInfo.status === 'Active' ? 'green' : 'orange'}>{classInfo.status}</Tag>
-            </div>
-        </div>
-      )}
-
-      <Card styles={{ body: { padding: 0 } }} variant="borderless">
-        <Tabs defaultActiveKey="1" tabBarStyle={{padding: '0 24px', marginBottom: 0}} items={mainTabItems} />
+      {/* 2. MAIN CONTENT TABS */}
+      <Card bordered={false} style={{ borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }} bodyStyle={{padding: 0}}>
+        <Tabs 
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          size="large"
+          tabBarStyle={{padding: '0 24px', margin: 0}}
+          items={[
+            // TAB 1: HỌC VIÊN
+            {
+              key: '1',
+              label: <span><TeamOutlined /> Học viên</span>,
+              children: (
+                <div style={{padding: 24}}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10}}>
+                    <Input 
+                      placeholder="Tìm kiếm học viên..." 
+                      prefix={<SearchOutlined style={{color:'#ccc'}}/>} 
+                      allowClear
+                      style={{width: 350, borderRadius: 6}} 
+                      onChange={e => setSearchText(e.target.value)} 
+                    />
+                    <Space>
+                        <Dropdown menu={{ items: exportItems }} placement="bottomRight">
+                             <Button icon={<MoreOutlined />}>Tiện ích</Button>
+                        </Dropdown>
+                        <Button type="primary" icon={<UserAddOutlined />} onClick={handleOpenAddStudentModal} style={{borderRadius: 6}}>Thêm học viên</Button>
+                    </Space>
+                  </div>
+                  
+                  <Table 
+                    dataSource={filteredStudents} 
+                    columns={studentColumns} 
+                    rowKey="student_id" 
+                    pagination={{ pageSize: 8, showTotal: (total) => `Tổng ${total} học viên` }} 
+                    scroll={{ x: 800 }}
+                  />
+                </div>
+              )
+            },
+            // TAB 2: KHÓA HỌC
+            {
+              key: '2',
+              label: <span><ReadOutlined /> Khóa học</span>,
+              children: (
+                <div style={{padding: 24}}>
+                    <Button type="dashed" block icon={<PlusOutlined />} style={{marginBottom: 20, height: 48}} onClick={openAddCourseModal}>
+                        Gán thêm khóa học vào lớp này
+                    </Button>
+                    {classInfo?.courses?.length > 0 ? (
+                      <List 
+                        grid={{ gutter: 24, xs: 1, sm: 1, md: 2, lg: 3 }} 
+                        dataSource={classInfo?.courses || []} 
+                        renderItem={item => (
+                          <List.Item>
+                              <Card 
+                                size="small" 
+                                title={<Space><BookOutlined style={{color:'#1890ff'}}/> {item.title}</Space>}
+                                hoverable
+                                actions={[
+                                   <Popconfirm key="del" title="Gỡ khóa học?" onConfirm={() => handleRemoveCourse(item.id)}>
+                                      <span style={{color: '#ff4d4f'}}><DeleteOutlined /> Gỡ bỏ</span>
+                                   </Popconfirm>
+                                ]}
+                              >
+                                 <Space direction="vertical" style={{width: '100%'}}>
+                                     <div style={{display:'flex', justifyContent:'space-between'}}>
+                                        <Text type="secondary">Mã môn:</Text>
+                                        <Tag>{item.code}</Tag>
+                                     </div>
+                                 </Space>
+                              </Card>
+                          </List.Item>
+                        )} 
+                      />
+                    ) : <Empty description="Chưa có khóa học nào được gán" />}
+                </div>
+              )
+            },
+            // TAB 3: GIẢNG VIÊN
+            {
+              key: '3',
+              label: <span><UserOutlined /> Giảng viên</span>,
+              children: (
+                <div style={{padding: 24}}>
+                    <Button type="dashed" block icon={<PlusOutlined />} style={{marginBottom: 20, height: 48}} onClick={openAddTeacherModal}>
+                        Thêm giảng viên phụ trách
+                    </Button>
+                    <List 
+                      grid={{ gutter: 24, xs: 1, sm: 2, md: 3, lg: 4 }} 
+                      dataSource={classInfo?.teachers || []} 
+                      renderItem={item => (
+                        <List.Item>
+                            <Card hoverable bodyStyle={{padding: 20}}>
+                                <Card.Meta 
+                                  avatar={<Avatar src={item.avatar} size={48} icon={<UserOutlined />} style={{backgroundColor: '#87d068'}} />} 
+                                  title={item.full_name} 
+                                  description={<Text type="secondary" style={{fontSize: 12}}>{item.email}</Text>} 
+                                />
+                                <div style={{marginTop: 16, textAlign: 'right'}}>
+                                  <Popconfirm title="Gỡ giảng viên?" onConfirm={() => handleRemoveTeacher(item.user_id)}>
+                                    <Button size="small" type="text" danger icon={<DeleteOutlined />}>Gỡ bỏ</Button>
+                                  </Popconfirm>
+                                </div>
+                            </Card>
+                        </List.Item>
+                    )} />
+                </div>
+              )
+            },
+            // TAB 4: ĐIỂM SỐ
+            {
+              key: '4',
+              label: <span><TrophyOutlined /> Sổ điểm</span>,
+              children: (
+                <div style={{minHeight: 400}}>
+                    <div style={{padding: '20px 24px', background: '#fcfcfc', borderBottom: '1px solid #f0f0f0', display:'flex', alignItems:'center', gap: 16}}>
+                        <span style={{fontWeight: 500}}>Chọn giáo trình cần xem điểm:</span>
+                        <Select 
+                           value={selectedCourseId} 
+                           onChange={setSelectedCourseId} 
+                           style={{width: 300}} 
+                           placeholder="Chọn khóa học..."
+                           status={!selectedCourseId ? 'warning' : ''}
+                        >
+                            {classInfo?.courses?.map(c => <Option key={c.id} value={c.id}>{c.title}</Option>)}
+                        </Select>
+                    </div>
+                    
+                    {selectedCourseId ? (
+                        <div style={{padding: 24}}>
+                            <Tabs 
+                              type="line" 
+                              items={[
+                                {
+                                  key: 'sub-quiz',
+                                  label: <span><CheckCircleOutlined /> Điểm Quiz</span>,
+                                  children: <ClassQuizTab courseId={selectedCourseId} students={students} />
+                                },
+                                {
+                                  key: 'sub-essay',
+                                  label: <span><EditOutlined /> Chấm bài Tự luận</span>,
+                                  children: <ClassEssayTab courseId={selectedCourseId} students={students} />
+                                }
+                              ]}
+                            />
+                        </div>
+                    ) : (
+                        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Vui lòng chọn khóa học phía trên để xem bảng điểm" style={{marginTop: 60}} />
+                    )}
+                </div>
+              )
+            }
+          ]}
+        />
       </Card>
 
-      {/* MODAL THÊM HỌC VIÊN */}
+      {/* --- MODALS --- */}
+      
+      {/* ADD STUDENT MODAL */}
       <Modal
-        title={`Chọn học viên để thêm vào lớp (${selectedStudentKeys.length} đã chọn)`}
+        title={
+          <Space>
+            <UserAddOutlined /> 
+            <span>Thêm học viên vào lớp</span>
+            <Tag color="blue">{selectedStudentKeys.length} đã chọn</Tag>
+          </Space>
+        }
         open={isAddStudentModal}
         onOk={handleAddStudentsSubmit}
         onCancel={() => setIsAddStudentModal(false)}
-        width={900}
+        width={800}
+        okText="Thêm ngay"
+        cancelText="Hủy"
         confirmLoading={addingStudents}
       >
-         <div style={{marginBottom: 16, display: 'flex', gap: 10}}>
+         <div style={{marginBottom: 16, background: '#fafafa', padding: 16, borderRadius: 8}}>
              <Input 
-                prefix={<SearchOutlined />} 
-                placeholder="Tìm theo Tên, Mã SV, Email, SĐT..." 
+                prefix={<SearchOutlined style={{color:'#999'}} />} 
+                placeholder="Tìm học viên trong hệ thống..." 
                 value={studentSearchText}
                 onChange={e => setStudentSearchText(e.target.value)}
-                style={{flex: 1}}
+                allowClear
              />
-             <Button icon={<FilterOutlined />}>Bộ lọc</Button>
+             <div style={{marginTop:8, fontSize:12, color:'#888', fontStyle:'italic'}}>
+                * Danh sách này ĐÃ ĐƯỢC LỌC BỎ tất cả học sinh đang học lớp khác (kể cả lớp đã kết thúc).
+             </div>
          </div>
-         
          <Table
             rowSelection={{
                 selectedRowKeys: selectedStudentKeys,
@@ -415,31 +705,134 @@ export default function ClassDetail() {
             columns={addStudentColumns}
             dataSource={filteredStudentPool}
             rowKey="user_id"
-            pagination={{ pageSize: 5 }}
+            pagination={{ pageSize: 5, size: 'small' }}
             size="small"
-            scroll={{ y: 300 }} 
+            scroll={{ y: 350 }} 
             loading={addingStudents && allStudentsPool.length === 0}
+            bordered
          />
       </Modal>
 
-      {/* ... (Các Modal khác giữ nguyên) ... */}
-      <Modal title="Import Học viên từ Excel" open={isImportModalOpen} onOk={handleImportStudents} onCancel={() => {setIsImportModalOpen(false); setExcelEmails([]);}} confirmLoading={importing}>
-        <Upload beforeUpload={(file) => { handleExcelFile(file); return false; }} maxCount={1} showUploadList={false}>
-            <Button icon={<UploadOutlined />}>Chọn File Excel</Button>
-        </Upload>
-        <div style={{marginTop: 10}}>Đã đọc: <b>{excelEmails.length}</b> email</div>
+      {/* IMPORT EXCEL MODAL */}
+      <Modal 
+        title={<Space><FileExcelOutlined style={{color: '#217346'}}/> Import từ Excel</Space>} 
+        open={isImportModalOpen} 
+        onOk={handleImportStudents} 
+        onCancel={() => {setIsImportModalOpen(false); setExcelEmails([]);}} 
+        confirmLoading={importing}
+        okText={`Import ${excelEmails.length > 0 ? excelEmails.length + ' user' : ''}`}
+      >
+        <Space direction="vertical" style={{width:'100%'}}>
+           <div style={{padding: 16, background: '#f5f5f5', borderRadius: 8, textAlign:'center', border: '1px dashed #d9d9d9'}}>
+              <Upload beforeUpload={(file) => { handleExcelFile(file); return false; }} maxCount={1} showUploadList={false}>
+                  <Button icon={<UploadOutlined />} size="large">Chọn File Excel</Button>
+              </Upload>
+              <div style={{marginTop: 8, fontSize: 12, color: '#888'}}>Hỗ trợ định dạng .xlsx, .xls</div>
+           </div>
+           {excelEmails.length > 0 && (
+              <div style={{marginTop: 10}}>
+                 <CheckCircleOutlined style={{color: '#52c41a'}} /> Đã tìm thấy <b>{excelEmails.length}</b> email hợp lệ.
+              </div>
+           )}
+        </Space>
       </Modal>
 
-      <Modal title="Thêm Khóa Học" open={isAddCourseModal} onOk={handleAddCourses} onCancel={() => setIsAddCourseModal(false)}>
-         <Select mode="multiple" style={{width: '100%', minHeight: 150}} placeholder="Chọn khóa học..." onChange={setSelectedIdsToAdd} showSearch optionFilterProp="children">
-            {allCourses.map(c => <Select.Option key={c.id} value={c.id}>{c.title}</Select.Option>)}
-         </Select>
+      {/* --- MODAL THÊM KHÓA HỌC (NEW) --- */}
+      <Modal 
+        title={<Space><BookOutlined style={{color:'#1890ff'}}/> <span style={{fontSize:16}}>Chọn Khóa Học Để Gán</span></Space>}
+        open={isAddCourseModal} 
+        onOk={handleAddCourses} 
+        onCancel={() => setIsAddCourseModal(false)}
+        width={900} 
+        okText={`Thêm ${selectedCourseKeys.length} khóa học`}
+        cancelText="Hủy bỏ"
+      >
+         <div style={{marginBottom: 16, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+            <Input 
+                prefix={<SearchOutlined style={{color:'#999'}} />} 
+                placeholder="Tìm kiếm theo Tên hoặc Mã môn..." 
+                value={courseSearchTerm}
+                onChange={e => setCourseSearchTerm(e.target.value)}
+                style={{width: '100%'}}
+                size="large"
+                allowClear
+             />
+         </div>
+         
+         <Table
+            rowSelection={{
+                selectedRowKeys: selectedCourseKeys,
+                onChange: (keys) => setSelectedCourseKeys(keys),
+                preserveSelectedRowKeys: true 
+            }}
+            columns={[
+                { title: 'Mã môn', dataIndex: 'code', width: 120, render: t => <Tag color="blue">{t}</Tag> },
+                { title: 'Tên khóa học', dataIndex: 'title', render: t => <b>{t}</b> },
+                { title: 'Mô tả', dataIndex: 'description', ellipsis: true, className: 'text-secondary' }
+            ]}
+            dataSource={filteredCoursesPool}
+            rowKey="id"
+            pagination={{ pageSize: 6 }}
+            size="middle"
+            scroll={{ y: 400 }} 
+            bordered
+            locale={{ emptyText: 'Không tìm thấy khóa học phù hợp' }}
+         />
       </Modal>
 
-      <Modal title="Thêm Giảng Viên" open={isAddTeacherModal} onOk={handleAddTeachers} onCancel={() => setIsAddTeacherModal(false)}>
-         <Select mode="multiple" style={{width: '100%', minHeight: 150}} placeholder="Chọn giảng viên..." onChange={setSelectedIdsToAdd} showSearch optionFilterProp="children">
-            {allTeachers.map(t => <Select.Option key={t.user_id} value={t.user_id}>{t.full_name} ({t.email})</Select.Option>)}
-         </Select>
+      {/* --- MODAL THÊM GIẢNG VIÊN (NEW) --- */}
+      <Modal 
+        title={<Space><UserAddOutlined style={{color:'#52c41a'}}/> <span style={{fontSize:16}}>Chọn Giảng Viên Phụ Trách</span></Space>}
+        open={isAddTeacherModal} 
+        onOk={handleAddTeachers} 
+        onCancel={() => setIsAddTeacherModal(false)}
+        width={900}
+        okText={`Thêm ${selectedTeacherKeys.length} giảng viên`}
+        cancelText="Hủy bỏ"
+      >
+         <div style={{marginBottom: 16}}>
+            <Input 
+                prefix={<SearchOutlined style={{color:'#999'}} />} 
+                placeholder="Tìm giảng viên theo Tên hoặc Email..." 
+                value={teacherSearchTerm}
+                onChange={e => setTeacherSearchTerm(e.target.value)}
+                style={{width: '100%'}}
+                size="large"
+                allowClear
+             />
+         </div>
+
+         <Table
+            rowSelection={{
+                selectedRowKeys: selectedTeacherKeys,
+                onChange: (keys) => setSelectedTeacherKeys(keys),
+                preserveSelectedRowKeys: true 
+            }}
+            columns={[
+                { 
+                    title: 'Giảng viên', 
+                    dataIndex: 'full_name', 
+                    render: (t, r) => (
+                        <Space>
+                            <Avatar src={r.avatar} icon={<UserOutlined />} style={{backgroundColor: '#87d068'}} />
+                            <div>
+                                <div style={{fontWeight: 600}}>{t}</div>
+                                <div style={{fontSize: 12, color: '#888'}}>{r.phone}</div>
+                            </div>
+                        </Space>
+                    ) 
+                },
+                { title: 'Email', dataIndex: 'email' },
+                { title: 'Giới tính', dataIndex: 'gender', width: 100 },
+            ]}
+            dataSource={filteredTeachersPool}
+            rowKey="user_id"
+            pagination={{ pageSize: 6 }}
+            size="middle"
+            scroll={{ y: 400 }}
+            bordered
+            locale={{ emptyText: 'Không tìm thấy giảng viên phù hợp' }}
+         />
       </Modal>
     </div>
   );

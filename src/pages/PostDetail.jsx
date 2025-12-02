@@ -1,275 +1,238 @@
-// src/pages/PostDetail.jsx
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import "../css/post-detail.css";
-
-import postImg1 from "../assets/post1.png";
-import postImg2 from "../assets/post2.png";
-import postImg3 from "../assets/post3.png";
+import "../css/post-detail.css"; 
 
 import { PostApi } from "@/services/api/postApi";
 
-/* ===== ICONS 20x20 ===== */
+/* ===== ICONS ===== */
 const TimeIcon = () => (
-  <svg
-    className="pd-icon"
-    width="20"
-    height="20"
-    viewBox="0 0 20 20"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <path
-      d="M10.0003 1.6665C5.40866 1.6665 1.66699 5.40817 1.66699 9.99984C1.66699 14.5915 5.40866 18.3332 10.0003 18.3332C14.592 18.3332 18.3337 14.5915 18.3337 9.99984C18.3337 5.40817 14.592 1.6665 10.0003 1.6665ZM13.6253 12.9748C13.5087 13.1748 13.3003 13.2832 13.0837 13.2832C12.9753 13.2832 12.867 13.2582 12.767 13.1915L10.1837 11.6498C9.54199 11.2665 9.06699 10.4248 9.06699 9.68317V6.2665C9.06699 5.92484 9.35033 5.6415 9.69199 5.6415C10.0337 5.6415 10.317 5.92484 10.317 6.2665V9.68317C10.317 9.98317 10.567 10.4248 10.8253 10.5748L13.4087 12.1165C13.7087 12.2915 13.8087 12.6748 13.6253 12.9748Z"
-      fill="#676767"
-    />
-  </svg>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
 );
-
 const BookIcon = () => (
-  <svg
-    className="pd-icon"
-    width="20"
-    height="20"
-    viewBox="0 0 20 20"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <path
-      d="M18.3333 4.04173V13.9501C18.3333 14.7584 17.675 15.5001 16.8667 15.6001L16.6083 15.6334C15.2417 15.8167 13.3167 16.3834 11.7667 17.0334C11.225 17.2584 10.625 16.8501 10.625 16.2584V4.66673C10.625 4.3584 10.8 4.07507 11.075 3.92507C12.6 3.10007 14.9083 2.36673 16.475 2.2334H16.525C17.525 2.2334 18.3333 3.04173 18.3333 4.04173Z"
-      fill="#676767"
-    />
-    <path
-      d="M8.92487 3.92507C7.39987 3.10007 5.09154 2.36673 3.52487 2.2334H3.46654C2.46654 2.2334 1.6582 3.04173 1.6582 4.04173V13.9501C1.6582 14.7584 2.31654 15.5001 3.12487 15.6001L3.3832 15.6334C4.74987 15.8167 6.67487 16.3834 8.22487 17.0334C8.76654 17.2584 9.36654 16.8501 9.36654 16.2584V4.66673C9.36654 4.35006 9.19987 4.07507 8.92487 3.92507ZM4.16654 6.45006H6.04154C6.3832 6.45006 6.66654 6.7334 6.66654 7.07506C6.66654 7.42506 6.3832 7.70006 6.04154 7.70006H4.16654C3.82487 7.70006 3.54154 7.42506 3.54154 7.07506C3.54154 6.7334 3.82487 6.45006 4.16654 6.45006ZM6.66654 10.2001H4.16654C3.82487 10.2001 3.54154 9.92506 3.54154 9.57506C3.54154 9.2334 3.82487 8.95006 4.16654 8.95006H6.66654C7.0082 8.95006 7.29154 9.2334 7.29154 9.57506C7.29154 9.92506 7.0082 10.2001 6.66654 10.2001Z"
-      fill="#676767"
-    />
-  </svg>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+);
+const EyeIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
 );
 
-// fallback ảnh cho related posts
-const fallbackImgs = [postImg1, postImg2, postImg3];
+// Ảnh fallback
+const fallbackImg = "https://placehold.co/600x400?text=No+Image";
 
 export default function PostDetail() {
-  const { id } = useParams(); // route: /posts/:id
+  const params = useParams(); // Lấy toàn bộ params object
   const navigate = useNavigate();
 
-  // post = undefined  -> chưa load
-  // post = null       -> 404 / không tìm thấy
-  // post = object     -> có dữ liệu
-  const [post, setPost] = useState(undefined);
-  const [relatedPosts, setRelatedPosts] = useState([]);
-  const [loading, setLoading] = useState(false);
+  // 👉 FALLBACK: Thử lấy id từ các tên phổ biến (id, postId, slug)
+  const id = params.id || params.postId || params.slug;
 
-  const formatDate = (value) => {
-    if (!value) return "—";
-    try {
-      return new Date(value).toLocaleDateString("vi-VN");
-    } catch {
-      return value;
-    }
+  const [loading, setLoading] = useState(true);
+  const [post, setPost] = useState(null);
+  const [relatedPosts, setRelatedPosts] = useState([]);
+
+  const formatDate = (isoString) => {
+    if (!isoString) return "";
+    return new Date(isoString).toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
   };
 
-  // ===== LOAD BÀI VIẾT CHÍNH =====
+  // 1. Fetch bài viết
   useEffect(() => {
     window.scrollTo(0, 0);
 
-    const loadPost = async () => {
-      if (!id) return;
-      try {
-        setLoading(true);
-        setPost(undefined);
+    const fetchPost = async () => {
+      // LOG DEBUG QUAN TRỌNG: Xem params thực tế là gì
+      console.log("--> [PostDetail] Full Params:", params);
+      console.log("--> [PostDetail] Detected ID:", id);
 
-        const data = await PostApi.getPostById(id);
-        console.log("[PostDetail] getPostById →", data);
-
-        if (!data || Object.keys(data).length === 0) {
-          setPost(null);
-        } else {
-          setPost(data);
-        }
-      } catch (err) {
-        console.error(
-          "Lỗi load chi tiết bài viết:",
-          err?.response?.data || err
-        );
-
-        // 404 thì coi như không tìm thấy
-        if (err?.response?.status === 404) {
-          setPost(null);
-        } else {
-          setPost(null);
-        }
-      } finally {
+      // SỬA LỖI: Nếu không có ID, tắt loading ngay và return
+      if (!id) {
+        console.error("Lỗi: Không tìm thấy ID trong URL! Hãy kiểm tra file App.jsx xem Route đã định nghĩa '/:id' chưa?");
         setLoading(false);
+        return;
       }
-    };
-
-    loadPost();
-  }, [id]);
-
-  // ===== LOAD BÀI VIẾT CÙNG CHỦ ĐỀ =====
-  useEffect(() => {
-    const loadRelated = async () => {
-      if (!post || !post.category) return;
-
+      
+      setLoading(true); 
       try {
-        const { posts: list } = await PostApi.getPosts({
-          page: 1,
-          limit: 3,
-          search: post.category,
-        });
-
-        const filtered = (list || []).filter((p) => p.id !== post.id);
-        setRelatedPosts(filtered);
-      } catch (err) {
-        console.error("Lỗi load related posts:", err?.response?.data || err);
+        console.log("Đang gọi API lấy bài viết ID:", id);
+        const data = await PostApi.getPostById(id);
+        console.log("Dữ liệu trả về:", data);
+        
+        if (data) {
+          setPost(data);
+        } else {
+          setPost(null); 
+        }
+      } catch (error) {
+        console.error("Lỗi khi tải bài viết:", error);
+        setPost(null);
+      } finally {
+        setLoading(false); // Luôn tắt loading dù thành công hay thất bại
       }
     };
 
-    loadRelated();
+    fetchPost();
+  }, [id, params]); // Thêm params vào dependency
+
+  // 2. Fetch bài liên quan
+  useEffect(() => {
+    if (!post || !post.category) return;
+    
+    const fetchRelated = async () => {
+      try {
+        const { posts } = await PostApi.getPosts({
+          page: 1,
+          limit: 4,
+          search: post.category, 
+        });
+        setRelatedPosts(posts.filter((p) => p.id !== post.id).slice(0, 3));
+      } catch (error) {
+        console.error("Lỗi tải bài liên quan:", error);
+      }
+    };
+    fetchRelated();
   }, [post]);
 
-  const handleBackHome = () => {
-    navigate("/");
-  };
+  // --- RENDER ---
 
-  const tag =
-    (post?.tags && post.tags[0]) || post?.category || "Bài viết";
+  if (loading) {
+    return (
+      <div className="pd-loading" style={{ padding: "100px 0", textAlign: "center" }}>
+        <div className="spinner" style={{ 
+          display: "inline-block", 
+          width: "40px", 
+          height: "40px", 
+          border: "4px solid #f3f3f3", 
+          borderTop: "4px solid #3498db", 
+          borderRadius: "50%", 
+          animation: "spin 1s linear infinite" 
+        }}></div>
+        <p style={{ marginTop: "16px", color: "#666" }}>Đang tải nội dung...</p>
+        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
-  const readTime = post?.readMins
-    ? `${post.readMins} phút đọc`
-    : "—";
+  if (!post) {
+    return (
+      <div className="pd-not-found" style={{ padding: "100px 0", textAlign: "center" }}>
+        <h2 style={{ fontSize: "24px", marginBottom: "16px" }}>Không tìm thấy bài viết</h2>
+        <p style={{ color: "#666", marginBottom: "24px" }}>
+          Có thể đường dẫn bị sai hoặc bài viết đã bị xóa.<br/>
+          (Tham số URL nhận được: {JSON.stringify(params)})
+        </p>
+        <div style={{ marginBottom: "20px", color: "red", fontWeight: "bold" }}>
+           {!id ? "⚠️ LỖI: Route chưa định nghĩa tham số :id" : ""}
+        </div>
+        <button 
+          onClick={() => navigate("/")}
+          style={{
+            padding: "10px 20px",
+            background: "#1890ff",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer"
+          }}
+        >
+          Về trang chủ
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="pd-page">
       <div className="pd-container">
-        {/* BREADCRUMB */}
-        <div className="pd-breadcrumb">
-          <span className="pd-breadcrumb-link" onClick={handleBackHome}>
-            Trang chủ
-          </span>
-          <span className="pd-breadcrumb-sep">/</span>
-          <span>Bài viết</span>
-          <span className="pd-breadcrumb-sep">/</span>
-          <span className="pd-breadcrumb-current">
-            {post?.title || "Chi tiết bài viết"}
-          </span>
-        </div>
+        {/* Breadcrumb */}
+        <nav className="pd-breadcrumb">
+          <span onClick={() => navigate("/")}>Trang chủ</span>
+          <span className="sep">/</span>
+          <span className="cat">{post.category || "Chi tiết bài viết"}</span>
+        </nav>
 
-        {/* TIÊU ĐỀ + META */}
-        <header className="pd-header">
-          <h1 className="pd-title">
-            {post?.title || "Authentication & Authorization trong ReactJS"}
-          </h1>
+        <div className="pd-grid">
+          {/* CỘT TRÁI */}
+          <main className="pd-main">
+            <header className="pd-header">
+              <h1 className="pd-title">{post.title}</h1>
+              
+              <div className="pd-meta">
+                <span className="pd-meta-item author">
+                  Bởi <strong>{post.author || "Admin"}</strong>
+                </span>
+                <span className="dot">•</span>
+                <span className="pd-meta-item">
+                  <TimeIcon /> {formatDate(post.publishedAt)}
+                </span>
+                <span className="dot">•</span>
+                <span className="pd-meta-item">
+                  <BookIcon /> {post.readMins || 5} phút đọc
+                </span>
+                 <span className="dot">•</span>
+                <span className="pd-meta-item">
+                  <EyeIcon /> {post.views} lượt xem
+                </span>
+              </div>
+            </header>
 
-          <div className="pd-meta-row">
-            <span className="pd-tag">{tag}</span>
-
-            <span className="pd-meta-item">
-              <TimeIcon />
-              <span>{formatDate(post?.publishedAt)}</span>
-            </span>
-
-            <span className="pd-meta-item">
-              <BookIcon />
-              <span>{readTime}</span>
-            </span>
-          </div>
-        </header>
-
-        {/* LAYOUT 2 CỘT */}
-        <div className="pd-layout">
-          {/* CỘT TRÁI: BÀI CHÍNH */}
-          <article className="pd-article">
-            {loading || post === undefined ? (
-              <p>Đang tải bài viết...</p>
-            ) : null}
-
-            {!loading && post === null && (
-              <p>Không tìm thấy bài viết hoặc đã bị xoá.</p>
+            {post.coverUrl && (
+              <div className="pd-image-block">
+                <img src={post.coverUrl} alt={post.title} />
+              </div>
             )}
 
-            {!loading && post && (
-              <>
-                {post.coverUrl && (
-                  <section className="pd-section">
-                    <div className="pd-image-block">
-                      <img src={post.coverUrl} alt={post.title} />
-                    </div>
-                  </section>
-                )}
-
-                <section className="pd-section">
-                  {post.content ? (
-                    <div
-                      className="pd-content-html"
-                      dangerouslySetInnerHTML={{ __html: post.content }}
-                    />
-                  ) : (
-                    <p>
-                      Lorem ipsum dolor sit amet consectetur. Ornare neque
-                      accumsan metus nulla ultricies massa ultrices rhoncus
-                      ultrices eros...
-                    </p>
-                  )}
-                </section>
-              </>
+            {post.excerpt && (
+              <div className="pd-excerpt" style={{
+                fontSize: "18px",
+                lineHeight: "1.6",
+                fontStyle: "italic",
+                color: "#555",
+                marginBottom: "32px",
+                borderLeft: "4px solid #1890ff",
+                paddingLeft: "16px"
+              }}>
+                {post.excerpt}
+              </div>
             )}
-          </article>
 
-          {/* CỘT PHẢI: BÀI VIẾT CÙNG CHỦ ĐỀ */}
+            <article 
+              className="ck-content" 
+              dangerouslySetInnerHTML={{ __html: post.content }} 
+            />
+
+            {post.tags && post.tags.length > 0 && (
+              <div className="pd-tags" style={{ marginTop: "40px", paddingTop: "20px", borderTop: "1px solid #eee" }}>
+                <span style={{ marginRight: "8px", fontWeight: "bold" }}>Tags:</span>
+                {post.tags.map((tag, idx) => (
+                  <span key={idx} className="pd-tag" style={{ marginRight: "8px" }}>
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </main>
+
+          {/* CỘT PHẢI */}
           <aside className="pd-sidebar">
-            <h3 className="pd-sidebar-title">Bài viết cùng chủ đề</h3>
-
+            <h3 className="pd-sidebar-title">Bài viết liên quan</h3>
             <div className="pd-sidebar-list">
-              {relatedPosts.length === 0 && (
-                <p className="pd-sidebar-empty">Chưa có bài viết liên quan.</p>
-              )}
-
-              {relatedPosts.map((p, index) => (
-                <article key={p.id} className="pd-sidebar-card">
+              {relatedPosts.length === 0 && <p style={{ color: "#999" }}>Chưa có bài viết liên quan.</p>}
+              
+              {relatedPosts.map((p) => (
+                <div key={p.id} className="pd-sidebar-card" onClick={() => navigate(`/posts/${p.id}`)}>
                   <div className="pd-sidebar-thumb">
-                    <img
-                      src={
-                        p.coverUrl ||
-                        fallbackImgs[index % fallbackImgs.length]
-                      }
-                      alt={p.title}
-                    />
+                    <img src={p.coverUrl || fallbackImg} alt={p.title} />
                   </div>
-
                   <div className="pd-sidebar-content">
-                    <span className="pd-sidebar-tag">
-                      {(p.tags && p.tags[0]) || p.category || "Front-End"}
-                    </span>
-
                     <h4 className="pd-sidebar-card-title">{p.title}</h4>
-
-                    <p className="pd-sidebar-card-excerpt">
-                      {p.excerpt ||
-                        (p.content
-                          ? p.content.replace(/<[^>]+>/g, "").slice(0, 100) +
-                            "..."
-                          : "Chào bạn! Đây là bài viết liên quan trong cùng chủ đề.")}
-                    </p>
-
                     <div className="pd-sidebar-meta">
-                      <span className="pd-meta-item">
-                        <TimeIcon />
-                        <span>{formatDate(p.publishedAt)}</span>
-                      </span>
-
-                      <span>•</span>
-
-                      <span className="pd-meta-item">
-                        <BookIcon />
-                        <span>
-                          {p.readMins ? `${p.readMins} phút đọc` : "—"}
-                        </span>
-                      </span>
+                      <span>{formatDate(p.publishedAt)}</span>
                     </div>
                   </div>
-                </article>
+                </div>
               ))}
             </div>
           </aside>

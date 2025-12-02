@@ -1,4 +1,3 @@
-// src/pages/admin/PostManagement.jsx
 import { useCallback, useEffect, useState } from "react";
 import {
   Table,
@@ -48,7 +47,7 @@ export default function PostManagement() {
       .toLowerCase()
       .trim()
       .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "") // bỏ dấu tiếng Việt
+      .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
 
@@ -57,8 +56,6 @@ export default function PostManagement() {
     async (page = 1, pageSize = 10, searchValue = "") => {
       try {
         setLoading(true);
-
-        // 👇 Nhận { posts, meta } từ PostApi
         const { posts: list, meta } = await PostApi.getPosts({
           page,
           limit: pageSize,
@@ -99,18 +96,16 @@ export default function PostManagement() {
     fetchPosts(1, pagination.pageSize, "");
   }, [fetchPosts, pagination.pageSize]);
 
-  // ===== THAY ĐỔI PAGE / PAGE SIZE =====
+  // ===== HANDLERS =====
   const handleTableChange = (paginationConfig) => {
     const { current, pageSize } = paginationConfig;
     fetchPosts(current, pageSize, search);
   };
 
-  // ===== MỞ MODAL TẠO =====
   const openCreateModal = () => {
     setIsEditing(false);
     setEditingId(null);
     setModalVisible(true);
-
     setTimeout(() => {
       form.setFieldsValue({
         title: "",
@@ -127,19 +122,16 @@ export default function PostManagement() {
         readMins: 5,
         seoTitle: "",
         seoDesc: "",
-        // chuẩn ISO giống swagger mẫu
         publishedAt: new Date().toISOString(),
       });
     }, 0);
   };
 
-  // ===== MỞ MODAL SỬA =====
   const openEditModal = (record) => {
     const p = record.raw;
     setIsEditing(true);
     setEditingId(p.id);
     setModalVisible(true);
-
     setTimeout(() => {
       form.setFieldsValue({
         title: p.title,
@@ -161,35 +153,21 @@ export default function PostManagement() {
     }, 0);
   };
 
-  // ===== SUBMIT FORM (TẠO / SỬA) =====
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-
-      const slug =
-        values.slug && values.slug.trim()
-          ? values.slug.trim()
-          : slugify(values.title);
+      const slug = values.slug?.trim() ? values.slug.trim() : slugify(values.title);
 
       const body = {
-        title: values.title,
+        ...values,
         slug,
-        content: values.content,
-        excerpt: values.excerpt,
-        category: values.category,
-        status: values.status,
-        coverUrl: values.coverUrl,
         tags: values.tags || [],
         author: values.author || "Admin",
         featured: !!values.featured,
         views: values.views ?? 0,
         readMins: values.readMins ?? 0,
-        seoTitle: values.seoTitle,
-        seoDesc: values.seoDesc,
         publishedAt: values.publishedAt || new Date().toISOString(),
       };
-
-      console.log("[Post] body gửi lên:", body);
 
       if (isEditing && editingId != null) {
         await PostApi.updatePost(editingId, body);
@@ -204,19 +182,12 @@ export default function PostManagement() {
       form.resetFields();
       fetchPosts(pagination.current, pagination.pageSize, search);
     } catch (error) {
-      // error của Form.validateFields
       if (error?.errorFields) return;
-
-      console.error("❌ Lỗi lưu bài viết:", error?.response?.data || error);
-      const backendMsg = error?.response?.data?.message;
-      const msg = Array.isArray(backendMsg)
-        ? backendMsg.join(", ")
-        : backendMsg || error?.message || "Lưu bài viết thất bại";
-      message.error(msg);
+      console.error("❌ Lỗi lưu bài viết:", error);
+      message.error("Lưu bài viết thất bại");
     }
   };
 
-  // ===== XOÁ POST =====
   const handleDelete = (id) => {
     Modal.confirm({
       title: "Xoá bài viết",
@@ -224,24 +195,19 @@ export default function PostManagement() {
       okText: "Xoá",
       okType: "danger",
       cancelText: "Hủy",
-      async onOk() {
+      onOk: async () => {
         try {
           await PostApi.deletePost(id);
           message.success("Xoá bài viết thành công");
           fetchPosts(pagination.current, pagination.pageSize, search);
         } catch (error) {
-          console.error("❌ Lỗi xoá bài viết:", error);
-          const backendMsg = error?.response?.data?.message;
-          const msg = Array.isArray(backendMsg)
-            ? backendMsg.join(", ")
-            : backendMsg || "Xoá bài viết thất bại";
-          message.error(msg);
+          message.error("Xoá bài viết thất bại");
         }
       },
     });
   };
 
-  // ===== CỘT TABLE =====
+  // ===== COLUMNS =====
   const columns = [
     {
       title: "Tiêu đề",
@@ -255,42 +221,14 @@ export default function PostManagement() {
       ),
     },
     {
-      title: "Danh mục",
-      dataIndex: "category",
-      key: "category",
-      render: (cat) => <Tag>{cat || "—"}</Tag>,
-    },
-    {
       title: "Trạng thái",
       dataIndex: "status",
       key: "status",
-      render: (status) => {
-        const isPublished = status === "published";
-        return (
-          <Tag color={isPublished ? "green" : "orange"}>
-            {isPublished ? "Published" : status || "Draft"}
-          </Tag>
-        );
-      },
-    },
-    {
-      title: "Nổi bật",
-      dataIndex: "featured",
-      key: "featured",
-      render: (featured) =>
-        featured ? <Tag color="gold">Featured</Tag> : "—",
-    },
-    {
-      title: "Views",
-      dataIndex: "views",
-      key: "views",
-      width: 90,
-    },
-    {
-      title: "Đọc (phút)",
-      dataIndex: "readMins",
-      key: "readMins",
-      width: 110,
+      render: (status) => (
+        <Tag color={status === "published" ? "green" : "orange"}>
+          {status === "published" ? "Published" : "Draft"}
+        </Tag>
+      ),
     },
     {
       title: "Ngày đăng",
@@ -298,12 +236,10 @@ export default function PostManagement() {
       key: "publishedAt",
       render: (value) =>
         value ? new Date(value).toLocaleString("vi-VN") : "—",
-      width: 170,
     },
     {
       title: "Hành động",
       key: "action",
-      width: 150,
       render: (_, record) => (
         <Space>
           <Button
@@ -329,30 +265,7 @@ export default function PostManagement() {
   return (
     <div className="admin-page">
       <div className="admin-page-header">
-        <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-          <h2 style={{ marginBottom: 0 }}>Quản lý bài viết</h2>
-
-          <Space.Compact style={{ width: 320 }}>
-            <Input
-              allowClear
-              placeholder="Tìm theo tiêu đề..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onPressEnter={(e) => {
-                const value = e.target.value;
-                setSearch(value);
-                fetchPosts(1, pagination.pageSize, value);
-              }}
-            />
-            <Button
-              type="primary"
-              onClick={() => fetchPosts(1, pagination.pageSize, search)}
-            >
-              Tìm
-            </Button>
-          </Space.Compact>
-        </div>
-
+        <h2>Quản lý bài viết</h2>
         <Button
           type="primary"
           icon={<PlusOutlined />}
@@ -362,102 +275,68 @@ export default function PostManagement() {
         </Button>
       </div>
 
-      <Table
-        columns={columns}
-        dataSource={posts}
-        rowKey="id"
-        loading={loading}
-        pagination={{
-          current: pagination.current,
-          pageSize: pagination.pageSize,
-          total: pagination.total,
-          showSizeChanger: true,
-        }}
-        onChange={handleTableChange}
-      />
+      <div style={{ marginTop: 16 }}>
+        <Table
+          columns={columns}
+          dataSource={posts}
+          rowKey="id"
+          loading={loading}
+          pagination={{
+            current: pagination.current,
+            pageSize: pagination.pageSize,
+            total: pagination.total,
+          }}
+          onChange={handleTableChange}
+        />
+      </div>
 
       <Modal
         title={isEditing ? "Cập nhật bài viết" : "Thêm bài viết mới"}
         open={modalVisible}
         onOk={handleSubmit}
-        onCancel={() => {
-          setModalVisible(false);
-          setEditingId(null);
-          form.resetFields();
-        }}
-        okText={isEditing ? "Cập nhật" : "Tạo mới"}
-        cancelText="Hủy"
-        width={800}
+        onCancel={() => setModalVisible(false)}
+        width={900}
+        style={{ top: 20 }}
       >
         <Form form={form} layout="vertical">
           <Form.Item
             label="Tiêu đề"
             name="title"
-            rules={[{ required: true, message: "Vui lòng nhập tiêu đề" }]}
+            rules={[{ required: true, message: "Nhập tiêu đề" }]}
           >
-            <Input placeholder="VD: 10 tips học NestJS hiệu quả" />
+            <Input />
+          </Form.Item>
+          
+          <Form.Item label="Mô tả ngắn" name="excerpt">
+            <TextArea rows={2} />
           </Form.Item>
 
-          <Form.Item label="Slug" name="slug">
-            <Input placeholder="vd: 10-tips-hoc-nestjs (bỏ trống sẽ tự tạo)" />
-          </Form.Item>
-
-          <Form.Item label="Danh mục" name="category">
-            <Input placeholder="VD: backend, lms, tip-hoc" />
-          </Form.Item>
-
-          <Form.Item label="Trạng thái" name="status">
-            <Select>
-              <Option value="draft">Draft</Option>
-              <Option value="published">Published</Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item label="Nổi bật" name="featured" valuePropName="checked">
-            <Switch />
-          </Form.Item>
-
-          <Form.Item label="Ảnh cover (URL)" name="coverUrl">
-            <Input placeholder="https://..." />
-          </Form.Item>
-
-          <Form.Item label="Tags" name="tags">
-            <Select mode="tags" placeholder="Nhập tags rồi nhấn Enter" />
-          </Form.Item>
-
-          <Form.Item label="Tác giả" name="author">
-            <Input placeholder="Tên tác giả" />
-          </Form.Item>
-
-          <Form.Item label="Views" name="views">
-            <InputNumber min={0} style={{ width: "100%" }} />
-          </Form.Item>
-
-          <Form.Item label="Thời gian đọc (phút)" name="readMins">
-            <InputNumber min={1} style={{ width: "100%" }} />
-          </Form.Item>
-
-          <Form.Item label="SEO Title" name="seoTitle">
-            <Input placeholder="Tiêu đề SEO" />
-          </Form.Item>
-
-          <Form.Item label="SEO Description" name="seoDesc">
-            <TextArea rows={2} placeholder="Mô tả SEO" />
-          </Form.Item>
-
-          <Form.Item label="Tóm tắt (excerpt)" name="excerpt">
-            <TextArea rows={2} placeholder="Tóm tắt ngắn cho bài viết" />
-          </Form.Item>
-
+          {/* CkEditorField được nhúng ở đây */}
           <Form.Item
             label="Nội dung"
             name="content"
-            rules={[{ required: true, message: "Vui lòng nhập nội dung" }]}
+            rules={[{ required: true, message: "Nhập nội dung" }]}
           >
             <CkEditorField
               value={form.getFieldValue("content")}
-              onChange={(html) => form.setFieldsValue({ content: html })}
+              onChange={(data) => form.setFieldsValue({ content: data })}
             />
+          </Form.Item>
+
+          <div style={{ display: 'flex', gap: 16 }}>
+             <Form.Item label="Trạng thái" name="status" style={{ flex: 1 }}>
+                <Select>
+                  <Option value="draft">Draft</Option>
+                  <Option value="published">Published</Option>
+                </Select>
+             </Form.Item>
+             <Form.Item label="Danh mục" name="category" style={{ flex: 1 }}>
+                <Input />
+             </Form.Item>
+          </div>
+          
+          <Form.Item label="Ảnh Cover (URL)" name="coverUrl">
+             <Input />
           </Form.Item>
         </Form>
       </Modal>
