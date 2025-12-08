@@ -1,6 +1,6 @@
 // src/layouts/AdminLayout.jsx
-import { useState } from "react";
-import { Layout, Menu, Avatar, Dropdown } from "antd";
+import { useState, useEffect } from "react";
+import { Layout, Menu, Avatar, Dropdown, Badge } from "antd"; // 👈 Thêm Badge
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -15,9 +15,13 @@ import {
   BellOutlined,
   UserOutlined,
   SettingOutlined,
-  LogoutOutlined
-} from "@ant-design/icons"; // Đã xoá bớt các icon thừa (Schedule, PlayCircle...)
+  LogoutOutlined,
+  MessageOutlined // 👈 Thêm icon tin nhắn
+} from "@ant-design/icons";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
+
+// 👇 Import ChatWidget (Đảm bảo bạn đã tạo file này ở src/components/ChatWidget.jsx)
+import ChatWidget from "@/components/ChatWidget";
 
 import "../css/admin-layout.css";
 
@@ -25,8 +29,25 @@ const { Header, Sider, Content } = Layout;
 
 export default function AdminLayout() {
   const [collapsed, setCollapsed] = useState(false);
+  
+  // 👇 State cho Chat Widget
+  const [chatOpen, setChatOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+
   const navigate = useNavigate();
   const location = useLocation();
+
+  // 👇 Lấy thông tin user từ localStorage khi load trang
+  useEffect(() => {
+    try {
+      const userStr = localStorage.getItem("user");
+      if (userStr) {
+        setCurrentUser(JSON.parse(userStr));
+      }
+    } catch (error) {
+      console.error("Lỗi đọc user từ localStorage", error);
+    }
+  }, []);
 
   const menuItems = [
     {
@@ -43,11 +64,7 @@ export default function AdminLayout() {
       key: "/admin/courses",
       icon: <BookOutlined />,
       label: "Quản lý khóa học", 
-      
     },
-    
-    
-
     {
       key: "question-banks-group",
       icon: <DatabaseOutlined />,
@@ -96,12 +113,8 @@ export default function AdminLayout() {
         navigate("/admin/settings");
         break;
       case "logout":
-        // Xử lý đăng xuất ở đây
-        // Ví dụ: Xóa token trong localStorage
         localStorage.removeItem("accessToken");
         localStorage.removeItem("user");
-        
-        // Chuyển hướng về trang login
         navigate("/login"); 
         break;
       default:
@@ -111,42 +124,23 @@ export default function AdminLayout() {
 
   const userMenu = {
     items: [
-      { 
-        key: "profile", 
-        label: "Hồ sơ cá nhân", 
-        icon: <UserOutlined /> 
-      },
-      { 
-        key: "settings", 
-        label: "Cài đặt", 
-        icon: <SettingOutlined /> 
-      },
-      { 
-        type: "divider" 
-      },
-      { 
-        key: "logout", 
-        label: "Đăng xuất", 
-        icon: <LogoutOutlined />, 
-        danger: true // Màu đỏ cảnh báo
-      },
+      { key: "profile", label: "Hồ sơ cá nhân", icon: <UserOutlined /> },
+      { key: "settings", label: "Cài đặt", icon: <SettingOutlined /> },
+      { type: "divider" },
+      { key: "logout", label: "Đăng xuất", icon: <LogoutOutlined />, danger: true },
     ],
-    onClick: handleUserMenuClick, // Gắn hàm xử lý sự kiện
+    onClick: handleUserMenuClick,
   };
 
   const handleMenuClick = (info) => {
-    // Chỉ navigate nếu key bắt đầu bằng /admin 
-    // (Tránh lỗi nếu click vào group key như "question-banks-group")
     if (info.key.startsWith("/admin")) {
       navigate(info.key);
     }
   };
 
-  // 🔹 Tính selectedKey: ưu tiên key dài nhất khớp với pathname
   const flatKeys = menuItems.flatMap((item) =>
     item.children ? item.children.map((c) => c.key) : item.key
   );
-
   
   const matchedKey =
     flatKeys
@@ -154,8 +148,6 @@ export default function AdminLayout() {
       .filter((key) => location.pathname.startsWith(key))
       .sort((a, b) => b.length - a.length)[0] || "/admin";
 
-  // Fix nhỏ: Nếu đang ở trang CourseManager (/admin/courses/quan-ly/...), 
-  // vẫn giữ active menu "Quản lý khóa học"
   const selectedKey = location.pathname.includes('/courses') ? '/admin/courses' : matchedKey;
 
   return (
@@ -169,7 +161,6 @@ export default function AdminLayout() {
         className="admin-sider"
       >
         <div className="admin-logo">
-          {/* Logo chữ cái hoặc ảnh */}
           <div className="admin-logo-icon">L</div>
           {!collapsed && <span className="admin-logo-text">LMS Admin</span>}
         </div>
@@ -177,7 +168,7 @@ export default function AdminLayout() {
         <Menu
           mode="inline"
           selectedKeys={[selectedKey]}
-          defaultOpenKeys={["question-banks-group"]} // Chỉ mở sẵn nhóm này
+          defaultOpenKeys={["question-banks-group"]}
           items={menuItems}
           onClick={handleMenuClick}
           className="admin-menu"
@@ -205,11 +196,26 @@ export default function AdminLayout() {
           </div>
 
           <div className="admin-header-right">
+            {/* 👇 ICON CHAT MỚI THÊM VÀO */}
+            <div 
+                className="admin-header-icon" 
+                onClick={() => setChatOpen(true)}
+                style={{ cursor: 'pointer', marginRight: 10, display: 'flex', alignItems: 'center' }}
+                title="Tin nhắn"
+            >
+                <Badge count={0} dot offset={[-5, 5]}> 
+                    <MessageOutlined style={{ fontSize: 20 }} />
+                </Badge>
+            </div>
+
             <BellOutlined className="admin-header-icon" />
+            
             <Dropdown menu={userMenu} placement="bottomRight">
               <div className="admin-user">
-                <Avatar size="small" icon={<UserOutlined />} />
-                <span className="admin-user-name">Admin</span>
+                <Avatar size="small" icon={<UserOutlined />} src={currentUser?.avatar} />
+                <span className="admin-user-name">
+                  {currentUser?.full_name || currentUser?.username || "Admin"}
+                </span>
               </div>
             </Dropdown>
           </div>
@@ -219,6 +225,13 @@ export default function AdminLayout() {
           <Outlet />
         </Content>
       </Layout>
+
+      {/* 👇 COMPONENT CHAT WIDGET (DRAWER) */}
+      <ChatWidget 
+        open={chatOpen} 
+        onClose={() => setChatOpen(false)} 
+        currentUser={currentUser}
+      />
     </Layout>
   );
 }

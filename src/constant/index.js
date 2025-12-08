@@ -1,0 +1,10 @@
+// src/constant/index.js
+export const QUESTION_TYPES = {
+  MULTIPLE_CHOICE: 'MULTIPLE_CHOICE',
+  FILL_IN_THE_BLANK: 'FILL_IN_THE_BLANK',
+};
+
+export const QUESTION_TYPE_LABELS = {
+  [QUESTION_TYPES.MULTIPLE_CHOICE]: 'Trắc nghiệm',
+  [QUESTION_TYPES.FILL_IN_THE_BLANK]: 'Điền từ',
+};

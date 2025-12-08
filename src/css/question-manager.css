@@ -20,6 +20,9 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  /* Thêm wrap để xuống dòng khi màn hình nhỏ */
+  flex-wrap: wrap; 
+  gap: 16px;
 }
 
 .qm-tabs-group {
@@ -128,6 +131,8 @@
   padding: 20px;
   border-radius: 4px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  /* Quan trọng: Tránh vỡ layout khi table quá rộng */
+  overflow-x: auto; 
 }
 
 .qm-content-header {
@@ -146,7 +151,7 @@
   flex: 1;
 }
 
-/* Custom Table Styles to match image */
+/* Custom Table Styles */
 .qm-question-box {
   border: 1px solid #d9d9d9;
   padding: 10px 12px;
@@ -170,7 +175,7 @@
 }
 
 .qm-tag-type {
-  background: #a05445; /* Màu nâu đỏ giống ảnh */
+  background: #a05445; 
   color: white;
   padding: 4px 8px;
   border-radius: 4px;
@@ -217,11 +222,62 @@
   display: block !important;
 }
 
-/* Đảm bảo nút bên trong cũng full width */
 .qm-sidebar-btn-excel {
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+}
+
+/* =========================================
+   🆕 RESPONSIVE FOR MOBILE (Dưới 768px)
+   ========================================= */
+@media (max-width: 768px) {
+  .qm-page-container {
+    padding: 10px; /* Giảm padding màn hình nhỏ */
+  }
+
+  /* Chuyển layout ngang sang dọc */
+  .qm-body-layout {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Sidebar filter chiếm full chiều rộng */
+  .qm-sidebar-filter {
+    width: 100%;
+    margin-bottom: 10px;
+    /* Có thể ẩn bớt nội dung nếu cần, hoặc để nguyên */
+  }
+
+  /* Bộ lọc item xếp ngang trên mobile cho gọn (tùy chọn) */
+  .qm-filter-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  
+  .qm-filter-item {
+    flex: 1;
+    text-align: center;
+    min-width: 100px;
+  }
+
+  /* Thanh toolbar (Search inputs) */
+  .qm-top-toolbar {
+    flex-direction: column;
+    align-items: stretch; /* Kéo giãn full width */
+  }
+
+  /* Content area (Table) */
+  .qm-content-area {
+    width: 100%;
+    padding: 10px;
+  }
+
+  /* Nút hành động trong bảng (Edit/Delete) có thể to hơn chút để dễ bấm */
+  .qm-action-btn {
+    width: 36px;
+    height: 36px;
+  }
 }

@@ -13,12 +13,13 @@ import {
 
 import { QuizApi } from "@/services/api/quizApi";
 import { QuestionApi } from "@/services/api/questionApi"; 
+import { QUESTION_TYPE_LABELS, QUESTION_TYPES } from "@/constant";
 import "@/css/quiz-manager.css";
 
 export default function QuizManager() {
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(false);
-
+  
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingQuiz, setEditingQuiz] = useState(null);
@@ -29,15 +30,14 @@ export default function QuizManager() {
   const [currentQuiz, setCurrentQuiz] = useState(null);
   const [allQuestions, setAllQuestions] = useState([]);
   
-  // State chọn câu hỏi
+  // Selection State
   const [selectedQuestionIds, setSelectedQuestionIds] = useState([]);
   const [checkedIds, setCheckedIds] = useState([]); 
   
-  // 👇 THÊM STATE SEARCH TAG
+  // Filters
   const [questionSearch, setQuestionSearch] = useState("");
-  const [tagSearch, setTagSearch] = useState(""); // State mới cho tìm kiếm Tag
+  const [tagSearch, setTagSearch] = useState("");
 
-  // --- FETCH DATA ---
   const fetchQuizzes = async () => {
     setLoading(true);
     try {
@@ -47,23 +47,16 @@ export default function QuizManager() {
       } else {
         setQuizzes([]);
       }
-    } catch (error) {
-      console.error("Lỗi tải quiz:", error);
-      message.error("Không thể tải danh sách bộ đề");
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { message.error("Không thể tải danh sách"); } 
+    finally { setLoading(false); }
   };
 
   useEffect(() => { fetchQuizzes(); }, []);
 
-  // --- HANDLERS (Create/Edit/Delete Quiz) ---
+  // --- ACTIONS ---
   const handleDelete = async (id) => {
-    try {
-      await QuizApi.delete(id);
-      message.success("Đã xóa bộ đề");
-      fetchQuizzes();
-    } catch (err) { message.error("Không thể xóa"); }
+    try { await QuizApi.delete(id); message.success("Đã xóa"); fetchQuizzes(); } 
+    catch (err) { message.error("Lỗi xóa"); }
   };
 
   const handleModalSubmit = async () => {
@@ -74,31 +67,26 @@ export default function QuizManager() {
         message.success("Cập nhật thành công");
       } else {
         await QuizApi.create(values); 
-        message.success("Tạo bộ đề thành công");
+        message.success("Tạo mới thành công");
       }
-      setIsModalOpen(false);
-      fetchQuizzes();
-    } catch (err) { message.error("Lỗi khi lưu dữ liệu"); }
+      setIsModalOpen(false); fetchQuizzes();
+    } catch (err) { message.error("Lỗi lưu dữ liệu"); }
   };
 
-  // --- DRAWER LOGIC ---
+  // --- DRAWER ASSIGNMENT ---
   const openAssignDrawer = async (quiz) => {
     setCurrentQuiz(quiz);
     setIsDrawerOpen(true);
-    setQuestionSearch("");
-    setTagSearch(""); // Reset search tag
-    setCheckedIds([]); 
+    setQuestionSearch(""); setTagSearch(""); setCheckedIds([]); 
     try {
       const [quizDetail, questions] = await Promise.all([
         QuizApi.getById(quiz.quiz_id),
         QuestionApi.getAll()
       ]);
       const currentIds = quizDetail.questions?.map(q => q.question_id) || [];
-      const questionList = Array.isArray(questions) ? questions : [];
-
       setSelectedQuestionIds(currentIds);
-      setAllQuestions(questionList);
-    } catch (err) { message.error("Lỗi tải dữ liệu câu hỏi"); }
+      setAllQuestions(Array.isArray(questions) ? questions : []);
+    } catch (err) { message.error("Lỗi tải dữ liệu"); }
   };
 
   const handleSaveAssignments = async () => {
@@ -109,18 +97,14 @@ export default function QuizManager() {
         order_index: index + 1
       }));
       await QuizApi.assignQuestions(currentQuiz.quiz_id, assignments);
-      message.success(`Đã lưu cấu trúc đề thi!`);
-      setIsDrawerOpen(false);
-      fetchQuizzes();
-    } catch (err) { message.error("Lỗi khi lưu cấu trúc đề"); }
+      message.success(`Đã lưu cấu trúc đề!`);
+      setIsDrawerOpen(false); fetchQuizzes();
+    } catch (err) { message.error("Lỗi lưu cấu trúc"); }
   };
 
   const handleCheckSource = (id) => {
-    if (checkedIds.includes(id)) {
-      setCheckedIds(checkedIds.filter(cid => cid !== id));
-    } else {
-      setCheckedIds([...checkedIds, id]);
-    }
+    if (checkedIds.includes(id)) setCheckedIds(checkedIds.filter(cid => cid !== id));
+    else setCheckedIds([...checkedIds, id]);
   };
 
   const handleAddBatch = () => {
@@ -130,74 +114,34 @@ export default function QuizManager() {
     setCheckedIds([]); 
   };
 
-  const handleRemoveFromQuiz = (id) => {
-    setSelectedQuestionIds(selectedQuestionIds.filter(qid => qid !== id));
-  };
-
-  // --- 🔥 CẬP NHẬT LOGIC FILTER ---
+  // --- FILTERS ---
   const filteredSourceQuestions = useMemo(() => {
     if (!Array.isArray(allQuestions)) return [];
     return allQuestions.filter(q => {
-      // 1. Loại bỏ câu đã chọn
       if (selectedQuestionIds.includes(q.question_id)) return false;
-
-      // 2. Lọc theo Text (Câu hỏi)
       const matchText = (q.question_text || "").toLowerCase().includes(questionSearch.toLowerCase());
-
-      // 3. Lọc theo Tag (Category)
       const matchTag = !tagSearch || (q.category && q.category.toLowerCase().includes(tagSearch.toLowerCase()));
-
       return matchText && matchTag;
     });
-  }, [allQuestions, selectedQuestionIds, questionSearch, tagSearch]); // Thêm tagSearch vào dependency
+  }, [allQuestions, selectedQuestionIds, questionSearch, tagSearch]);
 
   const selectedQuestionsObjects = useMemo(() => {
     if (!Array.isArray(allQuestions)) return [];
-    return selectedQuestionIds
-      .map(id => allQuestions.find(q => q.question_id === id))
-      .filter(Boolean);
+    return selectedQuestionIds.map(id => allQuestions.find(q => q.question_id === id)).filter(Boolean);
   }, [selectedQuestionIds, allQuestions]);
 
-
-  // --- COLUMNS ---
   const columns = [
+    { title: 'Tên Bộ Đề', dataIndex: 'title', key: 'title', render: t => <b style={{color:'#1890ff'}}>{t}</b> },
+    { title: 'Thời gian', dataIndex: 'duration', align: 'center', width: 120, render: m => <Tag icon={<ClockCircleOutlined />}>{m}p</Tag> },
     {
-      title: 'Tên Bộ Đề',
-      dataIndex: 'title',
-      key: 'title',
-      render: (text) => <div className="quiz-title-cell">{text}</div>
-    },
-    {
-      title: 'Thời gian',
-      dataIndex: 'duration',
-      align: 'center',
-      width: 150,
-      render: (mins) => (
-        <Tag icon={<ClockCircleOutlined />} color={mins > 45 ? "red" : "blue"} style={{borderRadius: 12, padding: '4px 10px'}}>
-           {mins} phút
-        </Tag>
-      )
-    },
-    {
-      title: 'Thao tác',
-      key: 'action',
-      align: 'right',
-      render: (_, record) => (
+      title: 'Thao tác', key: 'action', align: 'right',
+      render: (_, r) => (
         <div style={{display:'flex', justifyContent:'flex-end', gap: 8}}>
           <Tooltip title="Soạn câu hỏi">
-            <Button 
-              type="default" 
-              style={{color: '#1890ff', borderColor: '#1890ff'}}
-              icon={<FileTextOutlined />} 
-              onClick={() => openAssignDrawer(record)}
-            >
-              Soạn đề
-            </Button>
+            <Button type="default" icon={<FileTextOutlined />} onClick={() => openAssignDrawer(r)}>Soạn đề</Button>
           </Tooltip>
-          <Button icon={<EditOutlined />} onClick={() => { setEditingQuiz(record); form.setFieldsValue(record); setIsModalOpen(true); }} />
-          <Popconfirm title="Xóa?" onConfirm={() => handleDelete(record.quiz_id)}>
-            <Button danger icon={<DeleteOutlined />} />
-          </Popconfirm>
+          <Button icon={<EditOutlined />} onClick={() => { setEditingQuiz(r); form.setFieldsValue(r); setIsModalOpen(true); }} />
+          <Popconfirm title="Xóa?" onConfirm={() => handleDelete(r.quiz_id)}><Button danger icon={<DeleteOutlined />} /></Popconfirm>
         </div>
       )
     }
@@ -207,159 +151,82 @@ export default function QuizManager() {
     <div className="quiz-page-container"> 
       <div className="quiz-header-section">
          <div>
-            <h2 style={{margin:0, fontSize: 24}}>Quản lý Bộ đề thi</h2>
-            <div style={{color:'#666'}}>Tạo và quản lý các bài kiểm tra trắc nghiệm</div>
+            <h2 style={{margin:0}}>Quản lý Bộ đề thi</h2>
+            <div style={{color:'#666'}}>Quản lý danh sách và cấu trúc đề</div>
          </div>
-         <Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => { setEditingQuiz(null); form.resetFields(); setIsModalOpen(true); }}>
-            Tạo Bộ Đề Mới
-         </Button>
+         <Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => { setEditingQuiz(null); form.resetFields(); setIsModalOpen(true); }}>Tạo Mới</Button>
       </div>
 
       <div className="quiz-stats-row">
-          <div className="quiz-stat-card">
-             <div className="stat-icon" style={{background: '#e6f7ff', color: '#1890ff'}}><TrophyOutlined /></div>
-             <div className="stat-info"><h4>Tổng số bộ đề</h4><p>{quizzes.length}</p></div>
-          </div>
-          <div className="quiz-stat-card">
-             <div className="stat-icon" style={{background: '#f6ffed', color: '#52c41a'}}><ClockCircleOutlined /></div>
-             <div className="stat-info"><h4>Thời gian trung bình</h4><p>45m</p></div>
-          </div>
-          <div className="quiz-stat-card">
-             <div className="stat-icon" style={{background: '#fff7e6', color: '#fa8c16'}}><CalculatorOutlined /></div>
-             <div className="stat-info"><h4>Câu hỏi/đề (TB)</h4><p>~20</p></div>
-          </div>
+          <div className="quiz-stat-card"><div className="stat-icon" style={{background:'#e6f7ff', color:'#1890ff'}}><TrophyOutlined /></div><div className="stat-info"><h4>Tổng số</h4><p>{quizzes.length}</p></div></div>
+          <div className="quiz-stat-card"><div className="stat-icon" style={{background:'#f6ffed', color:'#52c41a'}}><ClockCircleOutlined /></div><div className="stat-info"><h4>Thời lượng TB</h4><p>45m</p></div></div>
+          <div className="quiz-stat-card"><div className="stat-icon" style={{background:'#fff7e6', color:'#fa8c16'}}><CalculatorOutlined /></div><div className="stat-info"><h4>Câu hỏi/đề</h4><p>~{Math.round(allQuestions.length / (quizzes.length || 1))}</p></div></div>
       </div>
 
       <div className="quiz-table-wrapper">
-         <div style={{marginBottom: 16, maxWidth: 400}}>
-             <Input prefix={<SearchOutlined />} placeholder="Tìm kiếm bộ đề..." allowClear />
-         </div>
          <Table columns={columns} dataSource={quizzes} rowKey="quiz_id" loading={loading} pagination={{ pageSize: 6 }} />
       </div>
 
-      <Modal
-        title={editingQuiz ? "Chỉnh sửa thông tin" : "Tạo bộ đề mới"}
-        open={isModalOpen}
-        onOk={handleModalSubmit}
-        onCancel={() => setIsModalOpen(false)}
-        width={500}
-      >
-        <Form form={form} layout="vertical" style={{marginTop: 20}}>
-           <Form.Item name="title" label="Tên bộ đề" rules={[{required:true, message:'Vui lòng nhập tên'}]}>
-              <Input size="large" placeholder="VD: Kiểm tra cuối khóa ReactJS" />
-           </Form.Item>
-           <Form.Item name="duration" label="Thời gian (phút)" rules={[{required:true}]}>
-              <InputNumber min={1} size="large" style={{width: '100%'}} />
-           </Form.Item>
+      <Modal title={editingQuiz ? "Sửa" : "Tạo"} open={isModalOpen} onOk={handleModalSubmit} onCancel={() => setIsModalOpen(false)}>
+        <Form form={form} layout="vertical">
+           <Form.Item name="title" label="Tên bộ đề" rules={[{required:true}]}><Input /></Form.Item>
+           <Form.Item name="duration" label="Phút" rules={[{required:true}]}><InputNumber min={1} style={{width:'100%'}}/></Form.Item>
         </Form>
       </Modal>
 
       <Drawer
-        title={
-           <div style={{display:'flex', alignItems:'center', gap: 10}}>
-              <span>Soạn đề: <b>{currentQuiz?.title}</b></span>
-              <Tag color="blue">{selectedQuestionIds.length} câu đã chọn</Tag>
-           </div>
-        }
-        width="calc(100vw - 230px)" 
-        style={{ top: 64 }}
-        mask={false} 
-        open={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        bodyStyle={{ background: '#f0f2f5', padding: '16px' }} 
-        extra={
-           <Button type="primary" size="large" onClick={handleSaveAssignments}>
-              Lưu cấu trúc đề
-           </Button>
-        }
+        title={<div>Soạn đề: <b>{currentQuiz?.title}</b> <Tag color="blue">{selectedQuestionIds.length} câu</Tag></div>}
+        width="calc(100vw - 100px)" open={isDrawerOpen} onClose={() => setIsDrawerOpen(false)}
+        extra={<Button type="primary" onClick={handleSaveAssignments}>Lưu Cấu Trúc</Button>}
+        bodyStyle={{background: '#f0f2f5', padding: 16}}
       >
         <div className="assign-layout">
-           {/* TRÁI: KHO CÂU HỎI */}
            <div className="assign-panel source-panel">
-              <div className="assign-panel-header" style={{display:'block', height:'auto', paddingBottom: 10}}>
-                 <div className="header-title" style={{marginBottom: 8}}>Ngân hàng câu hỏi</div>
-                 
-                 {/* 👇 CẬP NHẬT: 2 Ô TÌM KIẾM */}
-                 <div style={{display:'flex', gap: 8}}>
-                     <Input 
-                        prefix={<SearchOutlined />} 
-                        placeholder="Tìm nội dung..." 
-                        style={{flex: 1}} 
-                        value={questionSearch}
-                        onChange={e => setQuestionSearch(e.target.value)}
-                     />
-                     <Input 
-                        prefix={<TagOutlined />} // Cần import TagOutlined nếu chưa có
-                        placeholder="Tìm Tag..." 
-                        style={{width: 120}} 
-                        value={tagSearch}
-                        onChange={e => setTagSearch(e.target.value)}
-                     />
+              <div className="assign-panel-header">
+                 <div className="header-title">Ngân hàng câu hỏi</div>
+                 <div style={{display:'flex', gap: 5, marginTop: 5}}>
+                     <Input prefix={<SearchOutlined />} placeholder="Tìm nội dung..." value={questionSearch} onChange={e => setQuestionSearch(e.target.value)} />
+                     <Input prefix={<TagOutlined />} placeholder="Tag..." style={{width: 100}} value={tagSearch} onChange={e => setTagSearch(e.target.value)} />
                  </div>
-
               </div>
               <div className="assign-list-area">
-                 {filteredSourceQuestions.length === 0 ? <Empty description="Không tìm thấy" /> : 
-                    filteredSourceQuestions.map(q => (
-                       <div 
-                          key={q.question_id} 
-                          className={`q-item-card source ${checkedIds.includes(q.question_id) ? 'checked' : ''}`}
-                          onClick={() => handleCheckSource(q.question_id)}
-                       >
-                          <div className="q-checkbox">
-                             <Checkbox checked={checkedIds.includes(q.question_id)} />
-                          </div>
-                          <div className="q-content">
-                             <div className="q-text">{q.question_text}</div>
-                             <div className="q-tags">
-                                <Tag color="default" style={{fontSize: 10}}>{q.category || 'Chung'}</Tag>
-                             </div>
+                 {filteredSourceQuestions.map(q => (
+                    <div key={q.question_id} className={`q-item-card source ${checkedIds.includes(q.question_id)?'checked':''}`} onClick={() => handleCheckSource(q.question_id)}>
+                       <Checkbox checked={checkedIds.includes(q.question_id)} />
+                       <div className="q-content">
+                          <div className="q-text">{q.question_text}</div>
+                          <div style={{display:'flex', gap: 4, marginTop: 4}}>
+                             <Tag>{q.category || 'Chung'}</Tag>
+                             <Tag color={q.type === QUESTION_TYPES.MULTIPLE_CHOICE ? 'blue' : 'purple'}>
+                                {QUESTION_TYPE_LABELS[q.type]}
+                             </Tag>
                           </div>
                        </div>
-                    ))
-                 }
+                    </div>
+                 ))}
               </div>
            </div>
 
-           {/* GIỮA: NÚT CHUYỂN */}
            <div className="assign-actions-middle">
-              <Button 
-                type="primary" 
-                icon={<DoubleRightOutlined />} 
-                disabled={checkedIds.length === 0}
-                onClick={handleAddBatch}
-                shape="circle" 
-                size="large"
-                style={{height: 50, width: 50}} 
-              />
-              {checkedIds.length > 0 && <div style={{fontWeight:'bold', color:'#1890ff'}}>+{checkedIds.length}</div>}
+              <Button type="primary" icon={<DoubleRightOutlined />} disabled={checkedIds.length===0} onClick={handleAddBatch} shape="circle" size="large" />
            </div>
 
-           {/* PHẢI: ĐỀ THI */}
            <div className="assign-panel selected-panel">
               <div className="assign-panel-header selected-header">
-                 <div className="header-title selected-text">Đề thi ({selectedQuestionIds.length})</div>
-                 <Button size="small" danger type="dashed" onClick={() => setSelectedQuestionIds([])}>Xóa tất cả</Button>
+                 <div className="header-title selected-text">Đã chọn ({selectedQuestionIds.length})</div>
+                 <Button size="small" danger type="dashed" onClick={() => setSelectedQuestionIds([])}>Xóa hết</Button>
               </div>
               <div className="assign-list-area bg-white">
-                 {selectedQuestionsObjects.length === 0 ? 
-                    <div className="empty-placeholder">
-                       <FileTextOutlined style={{fontSize: 48, opacity:0.2}} />
-                       <p>Chưa có câu hỏi</p>
-                    </div> 
-                 : 
-                    selectedQuestionsObjects.map((q, idx) => (
-                       <div key={q.question_id} className="q-item-card in-quiz">
-                          <div className="q-index">#{idx + 1}</div>
-                          <div className="q-content">
-                             <div className="q-text">{q.question_text}</div>
-                          </div>
-                          <div className="q-action-btn" onClick={() => handleRemoveFromQuiz(q.question_id)}>
-                             <DeleteFilled style={{fontSize: 18, color: '#ff4d4f'}} />
-                          </div>
+                 {selectedQuestionsObjects.map((q, idx) => (
+                    <div key={q.question_id} className="q-item-card in-quiz">
+                       <div className="q-index">#{idx + 1}</div>
+                       <div className="q-content">
+                          <div className="q-text">{q.question_text}</div>
+                          <div style={{fontSize: 11, color: '#888'}}>{QUESTION_TYPE_LABELS[q.type]}</div>
                        </div>
-                    ))
-                 }
+                       <DeleteFilled style={{color: '#ff4d4f', cursor:'pointer'}} onClick={() => setSelectedQuestionIds(prev => prev.filter(pid => pid !== q.question_id))} />
+                    </div>
+                 ))}
               </div>
            </div>
         </div>

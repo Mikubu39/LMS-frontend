@@ -12,6 +12,9 @@ import {
   AppstoreOutlined, EditOutlined, RightOutlined, SearchOutlined 
 } from "@ant-design/icons";
 
+// 👇 THAY ĐỔI 1: Dùng thư viện chuyên dụng cho YouTube (Nhớ npm install react-youtube)
+import YouTube from 'react-youtube';
+
 // Import API
 import { CourseApi } from "@/services/api/courseApi.jsx";
 import { SessionApi } from "@/services/api/sessionApi.jsx";
@@ -56,6 +59,14 @@ export default function CourseManager() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalAction, setModalAction] = useState(null); 
   const [addItemType, setAddItemType] = useState(null); 
+
+  // 👇 THAY ĐỔI 2: Thêm hàm helper lấy ID Video từ Link
+  const getYouTubeID = (url) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
 
   // --- BUILD TREE ---
   const buildTree = (sessions) => {
@@ -282,7 +293,6 @@ export default function CourseManager() {
                      <Input size="large" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
                    </div>
 
-                   {/* ... (Các phần Session/Lesson giữ nguyên) ... */}
                    {selectedNode.type === 'session' && (
                      <Alert 
                         message="Quản lý Chương học" 
@@ -306,16 +316,45 @@ export default function CourseManager() {
 
                    {selectedNode.type === 'item' && (
                       <div className="cm-form-section">
-                         {/* VIDEO */}
-                         {selectedNode.itemType === 'Video' && (
-                           <>
-                             <label>YouTube Video URL</label>
-                             <Input size="large" prefix={<VideoCameraFilled style={{color:'#ccc'}}/>} value={editContent} onChange={(e) => setEditContent(e.target.value)} placeholder="https://youtube.com/..." />
-                             {editContent && <div style={{marginTop: 20, borderRadius: 12, overflow: 'hidden', height: 300}}><iframe width="100%" height="100%" src={editContent.replace("watch?v=", "embed/")} frameBorder="0" allowFullScreen /></div>}
-                           </>
-                         )}
+                         {/* 👇 THAY ĐỔI 3: Render bằng thư viện react-youtube */}
+                          {selectedNode.itemType === 'Video' && (
+                            <>
+                              <label>Video URL (YouTube)</label>
+                              <Input 
+                                  size="large" 
+                                  prefix={<VideoCameraFilled style={{color:'#ccc'}}/>} 
+                                  value={editContent} 
+                                  onChange={(e) => setEditContent(e.target.value)} 
+                                  placeholder="https://www.youtube.com/watch?v=..." 
+                              />
+                              
+                              <div style={{marginTop: 20, borderRadius: 12, overflow: 'hidden', height: 360, background: '#000', position: 'relative'}}>
+                                {getYouTubeID(editContent) ? (
+                                    <YouTube
+                                        // key giúp reset player khi đổi video
+                                        key={getYouTubeID(editContent)} 
+                                        videoId={getYouTubeID(editContent)}
+                                        opts={{
+                                            height: '360',
+                                            width: '100%',
+                                            playerVars: { 
+                                                autoplay: 0,
+                                                rel: 0,
+                                                origin: window.location.origin
+                                            },
+                                        }}
+                                        style={{ width: '100%', height: '100%' }}
+                                    />
+                                ) : (
+                                    <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height: '100%', color: '#fff'}}>
+                                        <VideoCameraFilled style={{fontSize: 40, marginBottom: 10, opacity: 0.5}} />
+                                        <span style={{opacity: 0.7}}>Vui lòng nhập Link YouTube hợp lệ</span>
+                                    </div>
+                                )}
+                              </div>
+                            </>
+                          )}
 
-                         {/* 👇 THAY ĐỔI: SỬ DỤNG CKEDITOR CHO TEXT & ESSAY */}
                          {(selectedNode.itemType === 'Text' || selectedNode.itemType === 'Essay') && (
                            <>
                              <label>{selectedNode.itemType === 'Essay' ? 'Đề bài luận (Câu hỏi)' : 'Nội dung bài học'}</label>
@@ -326,7 +365,6 @@ export default function CourseManager() {
                            </>
                          )}
 
-                         {/* QUIZ SELECT */}
                          {selectedNode.itemType === 'Quiz' && (
                            <>
                              <label>Chọn Bộ đề (Quiz)</label>
@@ -362,7 +400,6 @@ export default function CourseManager() {
         </main>
       </div>
 
-      {/* MODAL CREATE */}
       <Modal
         title={<span style={{fontSize: 18, fontWeight: 600}}>
             {modalAction === 'ADD_SESSION' ? "Thêm Chương Mới" : 
@@ -373,7 +410,7 @@ export default function CourseManager() {
         onCancel={() => setIsModalOpen(false)}
         onOk={handleModalSubmit}
         centered
-        width={addItemType === 'Text' || addItemType === 'Essay' ? 800 : 500} // Tăng width khi dùng Editor
+        width={addItemType === 'Text' || addItemType === 'Essay' ? 800 : 500}
       >
         <Form form={form} layout="vertical" style={{marginTop: 24}}>
           <Form.Item name="title" label="Tiêu đề" rules={[{required:true, message: "Vui lòng nhập tiêu đề"}]}>
@@ -386,7 +423,6 @@ export default function CourseManager() {
                 label={addItemType === 'Video' ? 'Link Video' : addItemType === 'Quiz' ? 'Chọn Quiz' : 'Nội dung'}
                 rules={[{ required: addItemType !== 'Quiz' }]}
              >
-                {/* 👇 THAY ĐỔI: CKEDITOR TRONG MODAL */}
                 {addItemType === 'Quiz' ? (
                    <Select
                       showSearch
@@ -402,10 +438,7 @@ export default function CourseManager() {
                       notFoundContent={<Empty description="Chưa có Quiz nào" />}
                    />
                 ) : addItemType === 'Text' || addItemType === 'Essay' ? (
-                    <CkEditorField 
-                        // Cần dùng value/onChange của Form.Item
-                        // Antd Form.Item tự truyền value/onChange vào con trực tiếp
-                    />
+                    <CkEditorField />
                 ) : (
                     <Input size="large" placeholder="Nhập link..." />
                 )}

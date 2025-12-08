@@ -1,4 +1,3 @@
-// src/pages/Posts.jsx
 import { useEffect, useState, useCallback } from "react";
 import BlogCard from "../components/BlogCard";
 import "../css/posts.css";
@@ -47,20 +46,33 @@ export default function Posts() {
           search: "",
         });
 
+        console.log("--> [Posts] Raw API Data:", list); // Debug xem API trả về gì
+
         // Map backend Post -> dữ liệu cho BlogCard
-        const mapped = (list || []).map((p) => ({
-          id: p.id,
-          title: p.title,
-          tag: (p.tags && p.tags[0]) || p.category || "Khác",
-          excerpt:
-            p.excerpt ||
-            (p.content
-              ? p.content.replace(/<[^>]+>/g, "").slice(0, 120) + "..."
-              : ""),
-          readTime: p.readMins ? `${p.readMins} phút đọc` : "—",
-          category: p.category || "",
-          raw: p,
-        }));
+        const mapped = (list || []).map((p) => {
+          // Xử lý ảnh fallback nếu coverUrl null/rỗng
+          const displayImage = p.coverUrl || "https://placehold.co/600x400?text=No+Image";
+
+          return {
+            id: p.id,
+            title: p.title,
+            
+            // 👉 QUAN TRỌNG: Map vào nhiều tên biến khác nhau để BlogCard chắc chắn nhận được
+            coverUrl: displayImage, 
+            image: displayImage,     // BlogCard thường dùng cái này
+            thumbnail: displayImage, // Hoặc cái này
+            
+            tag: (p.tags && p.tags[0]) || p.category || "Khác",
+            excerpt:
+              p.excerpt ||
+              (p.content
+                ? p.content.replace(/<[^>]+>/g, "").slice(0, 120) + "..."
+                : ""),
+            readTime: p.readMins ? `${p.readMins} phút đọc` : "—",
+            category: p.category || "",
+            raw: p,
+          };
+        });
 
         setPosts(mapped);
         setTotal(meta?.total || mapped.length);

@@ -8,17 +8,19 @@ import {
   Form,
   Input,
   Select,
-  Switch,
   InputNumber,
   message,
+  Upload, // Thêm Upload
 } from "antd";
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
+  LoadingOutlined, // Thêm icon loading
 } from "@ant-design/icons";
 
 import { PostApi } from "@/services/api/postApi";
+import { UploadApi } from "@/services/api/uploadApi"; // Import API Upload
 import CkEditorField from "@/components/form/CkEditorField";
 
 const { Option } = Select;
@@ -27,6 +29,10 @@ const { TextArea } = Input;
 export default function PostManagement() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // State cho Upload ảnh
+  const [fileList, setFileList] = useState([]);
+  const [uploading, setUploading] = useState(false);
 
   const [pagination, setPagination] = useState({
     current: 1,
@@ -41,7 +47,6 @@ export default function PostManagement() {
   const [editingId, setEditingId] = useState(null);
   const [form] = Form.useForm();
 
-  // ------- SLUGIFY đơn giản từ title -------
   const slugify = (str) =>
     (str || "")
       .toLowerCase()
@@ -51,7 +56,6 @@ export default function PostManagement() {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
 
-  // ===== LOAD POSTS =====
   const fetchPosts = useCallback(
     async (page = 1, pageSize = 10, searchValue = "") => {
       try {
@@ -73,6 +77,7 @@ export default function PostManagement() {
           views: p.views,
           readMins: p.readMins,
           publishedAt: p.publishedAt,
+          coverUrl: p.coverUrl, // Cần lấy coverUrl để hiển thị
           raw: p,
         }));
 
@@ -96,15 +101,65 @@ export default function PostManagement() {
     fetchPosts(1, pagination.pageSize, "");
   }, [fetchPosts, pagination.pageSize]);
 
-  // ===== HANDLERS =====
   const handleTableChange = (paginationConfig) => {
     const { current, pageSize } = paginationConfig;
     fetchPosts(current, pageSize, search);
   };
 
+  // ===== XỬ LÝ UPLOAD ẢNH =====
+  const handleUploadImage = async ({ file, onSuccess, onError }) => {
+    try {
+      setUploading(true);
+      // Gọi API upload (giả sử trả về { secure_url: "..." })
+      const res = await UploadApi.uploadImage(file);
+      
+      const url = res.secure_url || res.url; // Lấy URL từ response
+      
+      // Cập nhật giá trị vào Form (ẩn)
+      form.setFieldsValue({ coverUrl: url });
+      
+      message.success("Upload ảnh bìa thành công");
+      onSuccess(res, file);
+    } catch (err) {
+      console.error(err);
+      message.error("Upload thất bại");
+      onError(err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleChangeUpload = ({ fileList: newFileList }) => {
+    // Cập nhật state fileList để hiển thị thumbnail
+    // Nếu upload xong, gán url từ response vào file để Antd hiển thị preview
+    const updatedList = newFileList.map(file => {
+      if (file.response) {
+        file.url = file.response.secure_url || file.response.url;
+      }
+      return file;
+    });
+    
+    setFileList(updatedList);
+
+    // Nếu người dùng xóa hết ảnh -> reset form value
+    if (newFileList.length === 0) {
+      form.setFieldsValue({ coverUrl: "" });
+    }
+  };
+
+  const uploadButton = (
+    <div>
+      {uploading ? <LoadingOutlined /> : <PlusOutlined />}
+      <div style={{ marginTop: 8 }}>Upload</div>
+    </div>
+  );
+
+  // ==============================
+
   const openCreateModal = () => {
     setIsEditing(false);
     setEditingId(null);
+    setFileList([]); // Reset ảnh
     setModalVisible(true);
     setTimeout(() => {
       form.setFieldsValue({
@@ -131,6 +186,21 @@ export default function PostManagement() {
     const p = record.raw;
     setIsEditing(true);
     setEditingId(p.id);
+    
+    // Setup ảnh preview nếu có
+    if (p.coverUrl) {
+      setFileList([
+        {
+          uid: "-1",
+          name: "cover-image",
+          status: "done",
+          url: p.coverUrl,
+        },
+      ]);
+    } else {
+      setFileList([]);
+    }
+
     setModalVisible(true);
     setTimeout(() => {
       form.setFieldsValue({
@@ -180,6 +250,7 @@ export default function PostManagement() {
       setModalVisible(false);
       setEditingId(null);
       form.resetFields();
+      setFileList([]); // Reset ảnh sau khi lưu
       fetchPosts(pagination.current, pagination.pageSize, search);
     } catch (error) {
       if (error?.errorFields) return;
@@ -207,8 +278,16 @@ export default function PostManagement() {
     });
   };
 
-  // ===== COLUMNS =====
   const columns = [
+    {
+      title: "Ảnh",
+      dataIndex: "coverUrl",
+      key: "coverUrl",
+      width: 80,
+      render: (url) => (
+        url ? <img src={url} alt="cover" style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 4 }} /> : null
+      )
+    },
     {
       title: "Tiêu đề",
       dataIndex: "title",
@@ -311,7 +390,6 @@ export default function PostManagement() {
             <TextArea rows={2} />
           </Form.Item>
 
-          {/* CkEditorField được nhúng ở đây */}
           <Form.Item
             label="Nội dung"
             name="content"
@@ -335,8 +413,29 @@ export default function PostManagement() {
              </Form.Item>
           </div>
           
-          <Form.Item label="Ảnh Cover (URL)" name="coverUrl">
-             <Input />
+          {/* THAY THẾ INPUT URL BẰNG UPLOAD */}
+          <Form.Item label="Ảnh Bìa (Cover)" style={{ marginBottom: 0 }}>
+             {/* Input ẩn để giữ giá trị URL khi submit form */}
+             <Form.Item name="coverUrl" noStyle>
+               <Input type="hidden" />
+             </Form.Item>
+             
+             <Upload
+               listType="picture-card"
+               fileList={fileList}
+               customRequest={handleUploadImage}
+               onChange={handleChangeUpload}
+               maxCount={1} // Chỉ cho phép 1 ảnh bìa
+               onPreview={(file) => {
+                  const src = file.url || file.thumbUrl;
+                  if (src) {
+                    const imgWindow = window.open(src);
+                    imgWindow?.document.write(`<img src="${src}" style="max-width: 100%;"/>`);
+                  }
+               }}
+             >
+               {fileList.length >= 1 ? null : uploadButton}
+             </Upload>
           </Form.Item>
         </Form>
       </Modal>

@@ -20,6 +20,8 @@ import {
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { CourseApi } from "@/services/api/courseApi.jsx";
+// 👇 THÊM: Import SessionApi để lấy dữ liệu đếm
+import { SessionApi } from "@/services/api/sessionApi.jsx"; 
 
 const { Option } = Select;
 
@@ -40,24 +42,41 @@ export default function CourseManagement() {
 
   const navigate = useNavigate();
 
-  // 🔹 Lấy danh sách khóa học từ API
+  // 🔹 Lấy danh sách khóa học và đếm session
   const fetchCourses = useCallback(
     async (page = 1, limit = 10) => {
       try {
         setLoading(true);
-        const { courses, meta } = await CourseApi.getCourses({ page, limit });
+        
+        // 1. Gọi song song 2 API: Lấy khóa học & Lấy tất cả session
+        const [courseRes, sessionData] = await Promise.all([
+          CourseApi.getCourses({ page, limit }),
+          SessionApi.getSessions()
+        ]);
 
-        const mapped = (courses || []).map((c, index) => ({
-          key: c.id || index,
-          id: c.id,
-          code:
-            c.code || (c.id ? c.id.slice(0, 8).toUpperCase() : `C${index + 1}`),
-          name: c.title,
-          // ❌ ĐÃ XÓA: teacher (Vì backend không còn trả về instructor)
-          status: c.status || "Đang mở",
-          sessionCount: c.sessions?.length ?? c.sessionCount ?? 0,
-          raw: c,
-        }));
+        const { courses, meta } = courseRes;
+
+        // Chuẩn hóa danh sách session để đếm (đề phòng backend trả về format khác nhau)
+        let allSessions = [];
+        if (Array.isArray(sessionData)) allSessions = sessionData;
+        else if (Array.isArray(sessionData?.data)) allSessions = sessionData.data;
+
+        const mapped = (courses || []).map((c, index) => {
+          // 👇 Logic đếm session: Lọc ra các session thuộc course này
+          const count = allSessions.filter(s => 
+            (s.courseId === c.id) || (s.course && s.course.id === c.id)
+          ).length;
+
+          return {
+            key: c.id || index,
+            id: c.id,
+            // Đã bỏ logic tạo mã code vì không dùng hiển thị nữa
+            name: c.title,
+            status: c.status || "Đang mở",
+            sessionCount: count, // ✅ Sử dụng số lượng vừa tính toán
+            raw: c,
+          };
+        });
 
         setCourses(mapped);
         setPagination({
@@ -66,7 +85,7 @@ export default function CourseManagement() {
           total: meta.total || mapped.length,
         });
       } catch (error) {
-        console.error("❌ Lỗi khi tải danh sách khóa học:", error);
+        console.error("❌ Lỗi khi tải dữ liệu:", error);
         message.error("Không tải được danh sách khóa học");
       } finally {
         setLoading(false);
@@ -154,17 +173,12 @@ export default function CourseManagement() {
   };
 
   const columns = [
-    {
-      title: "Mã khóa học",
-      dataIndex: "code",
-      key: "code",
-    },
+    // ❌ ĐÃ XÓA: Cột Mã khóa học
     {
       title: "Tên khóa học",
       dataIndex: "name",
       key: "name",
     },
-    // ❌ ĐÃ XÓA CỘT: Giảng viên
     {
       title: "Trạng thái",
       dataIndex: "status",
@@ -178,6 +192,7 @@ export default function CourseManagement() {
       title: "Số session",
       dataIndex: "sessionCount",
       key: "sessionCount",
+      align: "center", // Canh giữa cho đẹp số liệu
     },
     {
       title: "Quản lý",

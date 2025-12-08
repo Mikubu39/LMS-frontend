@@ -1,3 +1,4 @@
+// ✅ src/components/CkEditorField.jsx
 import PropTypes from "prop-types";
 import { CKEditor } from "@ckeditor/ckeditor5-react";
 import ClassicEditor from "@ckeditor/ckeditor5-build-classic";
@@ -5,24 +6,16 @@ import { uploadImage } from "@/services/api/uploadApi";
 
 function CkEditorField({ value = "", onChange }) {
 
-  // --- 1. Định nghĩa Adapter tùy chỉnh ---
   function MyUploadAdapter(loader) {
     return {
       upload: () => {
         return new Promise((resolve, reject) => {
-          // 'loader.file' là một Promise trong CKEditor 5
           loader.file.then((file) => {
-            // Gọi API uploadImage của dự án (đã có Token trong http service)
             uploadImage(file)
               .then((data) => {
-                // Backend trả về: { secure_url: "...", public_id: "..." }
-                // CKEditor cần: { default: "url_anh" }
-                resolve({
-                  default: data.secure_url, 
-                });
+                resolve({ default: data.secure_url });
               })
               .catch((err) => {
-                console.error("Upload failed:", err);
                 reject(err);
               });
           });
@@ -31,30 +24,30 @@ function CkEditorField({ value = "", onChange }) {
     };
   }
 
-  // --- 2. Plugin để gắn Adapter vào Editor ---
   function UploadAdapterPlugin(editor) {
     editor.plugins.get("FileRepository").createUploadAdapter = (loader) => {
       return MyUploadAdapter(loader);
     };
   }
 
-  // --- 3. Cấu hình Editor ---
   const editorConfig = {
     language: "vi",
-    extraPlugins: [UploadAdapterPlugin], // Kích hoạt plugin upload
+    extraPlugins: [UploadAdapterPlugin],
+    // 👇 THÊM DÒNG NÀY: Tắt tính năng tự động định dạng và biến đổi ký tự
+    removePlugins: ["Autoformat", "TextTransformation"], 
+    
     toolbar: {
       items: [
         "undo", "redo", "|",
         "heading", "|",
         "fontfamily", "fontsize", "fontColor", "fontBackgroundColor", "|",
         "bold", "italic", "strikethrough", "subscript", "superscript", "code", "|",
-        "link", "uploadImage", "blockQuote", "codeBlock", "|", // Nút uploadImage
+        "link", "uploadImage", "blockQuote", "codeBlock", "|",
         "alignment", "|",
         "bulletedList", "numberedList", "todoList", "outdent", "indent",
       ],
       shouldNotGroupWhenFull: true,
     },
-    // Tùy chỉnh hiển thị ảnh trong bài viết (optional)
     image: {
       toolbar: [
         "imageTextAlternative",
