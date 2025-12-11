@@ -13,9 +13,9 @@ import Posts from "./pages/Posts.jsx";
 import PostDetail from "./pages/PostDetail.jsx";
 import RequireAuth from "./pages/auth/RequireAuth.jsx";
 import SearchPage from "./pages/Search.jsx"
+// ===== ADMIN PAGES =====
 import AdminProfile from "./pages/admin/AdminProfile";   
 import AdminSettings from "./pages/admin/AdminSettings";
-// ===== ADMIN PAGES =====
 import AdminLayout from "./layouts/AdminLayout.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import CourseManagement from "./pages/admin/CourseManagement.jsx";

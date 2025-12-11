@@ -13,13 +13,11 @@ function parseJwt(token) {
   }
 }
 
-/** Helper: chuẩn hóa danh sách role từ payload (luôn trả về chữ thường, map ROLE_ADMIN → admin,...) */
+/** Helper: chuẩn hóa danh sách role từ payload */
 function extractRoles(payload) {
   if (!payload) return ["student"];
 
-  // một số backend trả "role", số khác trả "roles"
   const raw = payload.roles ?? payload.role;
-
   let roles = [];
 
   if (Array.isArray(raw)) {
@@ -34,17 +32,15 @@ function extractRoles(payload) {
     .map((r) => {
       const lower = String(r).trim().toLowerCase();
       if (!lower) return null;
-
-      if (lower.includes("admin")) return "admin";      // ADMIN, ROLE_ADMIN, superadmin...
-      if (lower.includes("teacher")) return "teacher";  // TEACHER, ROLE_TEACHER
-      if (lower.includes("student")) return "student";  // STUDENT, ROLE_STUDENT
-
+      if (lower.includes("admin")) return "admin";
+      if (lower.includes("teacher")) return "teacher";
+      if (lower.includes("student")) return "student";
       return lower;
     })
     .filter(Boolean);
 }
 
-/** Khởi tạo state auth từ localStorage (nếu có token cũ + user đã lưu) */
+/** Khởi tạo state auth từ localStorage */
 function loadInitialAuthState() {
   if (typeof window === "undefined") {
     return { user: null, isAuthenticated: false };
@@ -66,12 +62,12 @@ function loadInitialAuthState() {
     online: true,
   };
 
-  const storedRaw = localStorage.getItem("auth_user");
+  // 🟢 ĐÃ SỬA: Dùng key "user" thay vì "auth_user"
+  const storedRaw = localStorage.getItem("user");
 
   if (storedRaw) {
     try {
       const storedUser = JSON.parse(storedRaw);
-
       const finalRoles = extractRoles({
         roles: storedUser.roles || baseUser.roles,
       });
@@ -85,18 +81,12 @@ function loadInitialAuthState() {
         isAuthenticated: true,
       };
     } catch (e) {
-      console.warn("Không parse được auth_user từ localStorage:", e);
-      return {
-        user: baseUser,
-        isAuthenticated: true,
-      };
+      console.warn("Không parse được user từ localStorage:", e);
+      return { user: baseUser, isAuthenticated: true };
     }
   }
 
-  return {
-    user: baseUser,
-    isAuthenticated: true,
-  };
+  return { user: baseUser, isAuthenticated: true };
 }
 
 const authSlice = createSlice({
@@ -109,9 +99,9 @@ const authSlice = createSlice({
       if (!incoming) {
         state.user = null;
         state.isAuthenticated = false;
-
         if (typeof window !== "undefined") {
-          localStorage.removeItem("auth_user");
+          // 🟢 ĐÃ SỬA: Xóa key "user"
+          localStorage.removeItem("user");
         }
         return;
       }
@@ -128,8 +118,9 @@ const authSlice = createSlice({
       state.isAuthenticated = true;
 
       if (typeof window !== "undefined") {
+        // 🟢 ĐÃ SỬA: Lưu vào key "user"
         localStorage.setItem(
-          "auth_user",
+          "user",
           JSON.stringify({
             ...incoming,
             roles: normalizedRoles,
@@ -143,7 +134,8 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       if (typeof window !== "undefined") {
         localStorage.removeItem("access_token");
-        localStorage.removeItem("auth_user");
+        // 🟢 ĐÃ SỬA: Xóa key "user"
+        localStorage.removeItem("user");
       }
     },
   },

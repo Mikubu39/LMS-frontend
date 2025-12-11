@@ -17,44 +17,58 @@ import {
   CameraOutlined,
   LoadingOutlined,
 } from "@ant-design/icons";
-import { useDispatch } from "react-redux";
-import { setUser } from "@/redux/authSlice";
+import { useDispatch, useSelector } from "react-redux";
+import { setUser, selectUser } from "@/redux/authSlice";
 
+// 🟢 ĐÃ SỬA: Import ProfileApi thay vì UserApi
+import { ProfileApi } from "@/services/api/profileApi";
 import { UploadApi } from "@/services/api/uploadApi";
-import { UserApi } from "@/services/api/userApi";
 
 export default function AdminProfile() {
-  // 1. Khởi tạo instance form
   const [form] = Form.useForm();
   const dispatch = useDispatch();
+  
+  // Lấy user hiện tại từ Redux làm fallback
+  const currentUser = useSelector(selectUser);
 
   const [avatarUrl, setAvatarUrl] = useState(null);
-  const [userId, setUserId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [fetching, setFetching] = useState(true);
 
-  // 2. Load dữ liệu khi vào trang
+  // 1. Load dữ liệu MỚI NHẤT từ API khi vào trang
   useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem("user");
-      if (storedUser) {
-        const currentUser = JSON.parse(storedUser);
-        setUserId(currentUser.id);
-        setAvatarUrl(currentUser.avatar);
-
+    const fetchProfile = async () => {
+      try {
+        setFetching(true);
+        // Gọi API lấy thông tin profile của chính mình
+        const data = await ProfileApi.getProfile({ mapped: true, prevUser: currentUser });
+        
+        // Cập nhật Redux ngay để header/sidebar hiển thị đúng
+        dispatch(setUser(data));
+        
         // Map dữ liệu vào form
+        // Lưu ý: data.full_name là từ backend, form dùng name="fullName"
         form.setFieldsValue({
-          fullName: currentUser.fullName || currentUser.name || "",
-          email: currentUser.email || "",
-          phone: currentUser.phone || "",
+          fullName: data.full_name || data.name || "", 
+          email: data.email || "",
+          phone: data.phone || "",
         });
-      }
-    } catch (err) {
-      console.error("Lỗi parse user:", err);
-    }
-  }, [form]);
 
-  // 3. Xử lý Upload ảnh (Đã hoạt động tốt)
+        setAvatarUrl(data.avatar);
+      } catch (error) {
+        console.error("Lỗi lấy profile:", error);
+        message.error("Không tải được thông tin cá nhân");
+      } finally {
+        setFetching(false);
+      }
+    };
+
+    fetchProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, dispatch]); 
+
+  // 2. Xử lý Upload ảnh (Giữ nguyên logic cũ nhưng thêm thông báo)
   const handleCustomUpload = async ({ file, onSuccess, onError }) => {
     setUploading(true);
     try {
@@ -63,7 +77,7 @@ export default function AdminProfile() {
 
       if (newImageUrl) {
         setAvatarUrl(newImageUrl);
-        message.success("Tải ảnh thành công!");
+        message.success("Tải ảnh xong! Nhấn 'Lưu thay đổi' để cập nhật.");
         onSuccess("ok");
       } else {
         throw new Error("Không lấy được link ảnh từ API");
@@ -88,54 +102,50 @@ export default function AdminProfile() {
     return true;
   };
 
-  // 4. Xử lý Lưu thay đổi (FIX LỖI 400 TẠI ĐÂY)
+  // 3. Xử lý Lưu thay đổi (Dùng ProfileApi.updateProfile)
   const handleUpdate = async (values) => {
-    if (!userId) {
-      message.error("Vui lòng đăng nhập lại.");
-      return;
-    }
-
-    // ⚠️ QUAN TRỌNG: Chỉ lấy đúng các trường Backend cần.
-    // Không dùng "...values" vì nó sẽ kèm theo "fullName" gây lỗi 400.
-    const cleanPayload = {
-      name: values.fullName, // Map từ field 'fullName' của form sang 'name' của DB
-      phone: values.phone,
-      avatar: avatarUrl,
-    };
-
-    console.log("Payload gửi đi:", cleanPayload); // Debug xem gửi gì
-
     setLoading(true);
     try {
-      // Gọi API PATCH
-      await UserApi.update(userId, cleanPayload);
-      
-      message.success("Cập nhật thành công!");
-
-      // Cập nhật Redux & LocalStorage để Header đổi ngay
-      const oldUser = JSON.parse(localStorage.getItem("user")) || {};
-      const newUser = {
-        ...oldUser,
-        ...cleanPayload,
-        fullName: values.fullName, // Giữ field này cho frontend dùng
+      // Chuẩn bị payload đúng format backend yêu cầu
+      const payload = {
+        full_name: values.fullName, // Backend cần 'full_name'
+        phone: values.phone,
+        avatar: avatarUrl,
       };
 
-      localStorage.setItem("user", JSON.stringify(newUser));
-      dispatch(setUser(newUser));
+      console.log("Payload gửi đi:", payload);
+
+      // Gọi API update profile của chính mình
+      const updatedRawProfile = await ProfileApi.updateProfile(payload);
+
+      message.success("Cập nhật hồ sơ thành công!");
+
+      // Map lại dữ liệu backend trả về để update Redux
+      const mappedUser = ProfileApi.mapProfileToUser(updatedRawProfile, currentUser);
+
+      // Cập nhật Redux & LocalStorage
+      dispatch(setUser(mappedUser));
 
     } catch (error) {
       console.error("Update Error:", error);
-      // Hiển thị lỗi chi tiết từ Backend trả về
       const msg = error.response?.data?.message;
       if (Array.isArray(msg)) {
-        message.error(msg.join(", ")); // VD: "phone must be a number string"
+        message.error(msg.join(", "));
       } else {
-        message.error(msg || "Lỗi khi lưu dữ liệu (400)");
+        message.error(msg || "Lỗi khi lưu dữ liệu");
       }
     } finally {
       setLoading(false);
     }
   };
+
+  if (fetching) {
+    return (
+      <div style={{ textAlign: "center", padding: 50 }}>
+        <Spin size="large" tip="Đang tải thông tin..." />
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: 24 }}>
@@ -162,13 +172,15 @@ export default function AdminProfile() {
                 </div>
               </div>
             </Upload>
-            <h3 style={{ marginTop: 16 }}>{form.getFieldValue("fullName") || "Admin"}</h3>
+            <h3 style={{ marginTop: 16 }}>
+              {form.getFieldValue("fullName") || currentUser?.name || "User"}
+            </h3>
+            <p style={{ color: "#888" }}>{currentUser?.email}</p>
           </Card>
         </Col>
 
         <Col xs={24} md={16}>
           <Card title="Thông tin cá nhân">
-            {/* ✅ Đã thêm prop form={form} để fix warning */}
             <Form 
               layout="vertical" 
               form={form} 

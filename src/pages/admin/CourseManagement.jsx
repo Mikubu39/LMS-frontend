@@ -12,22 +12,28 @@ import {
   Select,
   Popconfirm,
   message,
+  Upload,
 } from "antd";
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
+  UploadOutlined, // 👈 Thêm icon upload
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { CourseApi } from "@/services/api/courseApi.jsx";
-// 👇 THÊM: Import SessionApi để lấy dữ liệu đếm
-import { SessionApi } from "@/services/api/sessionApi.jsx"; 
+import { SessionApi } from "@/services/api/sessionApi.jsx";
+import { uploadImage } from "@/services/api/uploadApi.jsx";
 
 const { Option } = Select;
 
 export default function CourseManagement() {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // 👇 State cho việc upload ảnh
+  const [uploading, setUploading] = useState(false);
+  const [imageUrl, setImageUrl] = useState(null);
 
   const [pagination, setPagination] = useState({
     current: 1,
@@ -43,61 +49,101 @@ export default function CourseManagement() {
   const navigate = useNavigate();
 
   // 🔹 Lấy danh sách khóa học và đếm session
-  const fetchCourses = useCallback(
-    async (page = 1, limit = 10) => {
-      try {
-        setLoading(true);
-        
-        // 1. Gọi song song 2 API: Lấy khóa học & Lấy tất cả session
-        const [courseRes, sessionData] = await Promise.all([
-          CourseApi.getCourses({ page, limit }),
-          SessionApi.getSessions()
-        ]);
+  const fetchCourses = useCallback(async (page = 1, limit = 10) => {
+    try {
+      setLoading(true);
 
-        const { courses, meta } = courseRes;
+      const [courseRes, sessionData] = await Promise.all([
+        CourseApi.getCourses({ page, limit }),
+        SessionApi.getSessions(),
+      ]);
 
-        // Chuẩn hóa danh sách session để đếm (đề phòng backend trả về format khác nhau)
-        let allSessions = [];
-        if (Array.isArray(sessionData)) allSessions = sessionData;
-        else if (Array.isArray(sessionData?.data)) allSessions = sessionData.data;
+      const { courses, meta } = courseRes;
 
-        const mapped = (courses || []).map((c, index) => {
-          // 👇 Logic đếm session: Lọc ra các session thuộc course này
-          const count = allSessions.filter(s => 
-            (s.courseId === c.id) || (s.course && s.course.id === c.id)
-          ).length;
+      let allSessions = [];
+      if (Array.isArray(sessionData)) allSessions = sessionData;
+      else if (Array.isArray(sessionData?.data))
+        allSessions = sessionData.data;
 
-          return {
-            key: c.id || index,
-            id: c.id,
-            // Đã bỏ logic tạo mã code vì không dùng hiển thị nữa
-            name: c.title,
-            status: c.status || "Đang mở",
-            sessionCount: count, // ✅ Sử dụng số lượng vừa tính toán
-            raw: c,
-          };
-        });
+      const mapped = (courses || []).map((c, index) => {
+        const count = allSessions.filter(
+          (s) => (s.courseId === c.id) || (s.course && s.course.id === c.id)
+        ).length;
 
-        setCourses(mapped);
-        setPagination({
-          current: meta.page || page,
-          pageSize: meta.limit || limit,
-          total: meta.total || mapped.length,
-        });
-      } catch (error) {
-        console.error("❌ Lỗi khi tải dữ liệu:", error);
-        message.error("Không tải được danh sách khóa học");
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
+        return {
+          key: c.id || index,
+          id: c.id,
+          name: c.title,
+          status: c.status || "Đang mở",
+          sessionCount: count,
+          raw: c,
+        };
+      });
+
+      setCourses(mapped);
+      setPagination({
+        current: meta.page || page,
+        pageSize: meta.limit || limit,
+        total: meta.total || mapped.length,
+      });
+    } catch (error) {
+      console.error("❌ Lỗi khi tải dữ liệu:", error);
+      message.error("Không tải được danh sách khóa học");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchCourses(1, pagination.pageSize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 👇 Xử lý logic Upload ảnh
+  const handleUpload = async (file) => {
+  // 1. Kiểm tra định dạng (Chỉ cho phép JPG, PNG, JPEG, WEBP)
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    message.error('Chỉ chấp nhận định dạng ảnh JPG, PNG hoặc WEBP!');
+    return Upload.LIST_IGNORE; // Hủy upload ngay lập tức
+  }
+
+  // 2. Kiểm tra dung lượng (Ví dụ giới hạn 5MB)
+  const isLt5M = file.size / 1024 / 1024 < 5;
+  if (!isLt5M) {
+    message.error('Ảnh phải nhỏ hơn 5MB!');
+    return Upload.LIST_IGNORE; // Hủy upload
+  }
+
+  // 3. Nếu thỏa mãn hết thì mới gọi API
+  try {
+    setUploading(true);
+    const data = await uploadImage(file); // Gọi API
+    
+    const url = data.secure_url;
+    setImageUrl(url);
+    form.setFieldsValue({ thumbnail: url });
+    message.success("Upload ảnh thành công!");
+  } catch (error) {
+    // 4. Xử lý lỗi từ Backend trả về (nếu lọt qua bước kiểm tra trên)
+    console.error("Upload error:", error);
+    
+    // Lấy message chi tiết từ backend NestJS
+    const backendMsg = error?.response?.data?.message;
+    
+    if (backendMsg) {
+       // NestJS thường trả về mảng message hoặc chuỗi
+       const msgToShow = Array.isArray(backendMsg) ? backendMsg[0] : backendMsg;
+       message.error(`Lỗi từ server: ${msgToShow}`);
+    } else {
+       message.error("Upload thất bại, vui lòng thử lại!");
+    }
+  } finally {
+    setUploading(false);
+  }
+  
+  return false; // Chặn hành vi upload mặc định của Antd
+};
 
   const handleSubmit = async () => {
     try {
@@ -120,6 +166,7 @@ export default function CourseManagement() {
 
       setModalVisible(false);
       setEditingId(null);
+      setImageUrl(null);
       form.resetFields();
       fetchCourses(pagination.current, pagination.pageSize);
     } catch (error) {
@@ -154,6 +201,7 @@ export default function CourseManagement() {
   const openCreateModal = () => {
     setIsEditing(false);
     setEditingId(null);
+    setImageUrl(null);
     form.resetFields();
     setModalVisible(true);
   };
@@ -162,6 +210,7 @@ export default function CourseManagement() {
     const c = record.raw;
     setIsEditing(true);
     setEditingId(c.id);
+    setImageUrl(c.thumbnail);
     form.setFieldsValue({
       title: c.title,
       description: c.description,
@@ -173,11 +222,22 @@ export default function CourseManagement() {
   };
 
   const columns = [
-    // ❌ ĐÃ XÓA: Cột Mã khóa học
     {
       title: "Tên khóa học",
       dataIndex: "name",
       key: "name",
+      render: (text, record) => (
+        <Space>
+          {record.raw.thumbnail && (
+            <img 
+              src={record.raw.thumbnail} 
+              alt="thumb" 
+              style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4 }} 
+            />
+          )}
+          <span>{text}</span>
+        </Space>
+      )
     },
     {
       title: "Trạng thái",
@@ -192,7 +252,7 @@ export default function CourseManagement() {
       title: "Số session",
       dataIndex: "sessionCount",
       key: "sessionCount",
-      align: "center", // Canh giữa cho đẹp số liệu
+      align: "center",
     },
     {
       title: "Quản lý",
@@ -242,7 +302,11 @@ export default function CourseManagement() {
     <div className="admin-page">
       <div className="admin-page-header">
         <h2>Quản lý khóa học</h2>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={openCreateModal}
+        >
           Thêm khóa học
         </Button>
       </div>
@@ -263,6 +327,7 @@ export default function CourseManagement() {
         onCancel={() => {
           setModalVisible(false);
           setEditingId(null);
+          setImageUrl(null);
           form.resetFields();
         }}
         okText={isEditing ? "Cập nhật" : "Tạo mới"}
@@ -302,14 +367,60 @@ export default function CourseManagement() {
             />
           </Form.Item>
 
+          {/* 👇 GIAO DIỆN UPLOAD MỚI: Rõ ràng hơn */}
           <Form.Item
-            label="Thumbnail URL"
+            label="Thumbnail"
             name="thumbnail"
             rules={[
-              { required: true, message: "Vui lòng nhập URL thumbnail" },
+              { required: true, message: "Vui lòng upload thumbnail" },
             ]}
           >
-            <Input placeholder="https://example.com/thumbnail.jpg" />
+            {/* Input ẩn để giữ giá trị URL validate */}
+            <Input style={{ display: 'none' }} />
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {/* Khu vực Preview Ảnh */}
+              <div 
+                style={{
+                  width: '100%',
+                  height: '200px',
+                  border: '1px dashed #d9d9d9',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  backgroundColor: '#fafafa',
+                  overflow: 'hidden',
+                  position: 'relative'
+                }}
+              >
+                {imageUrl ? (
+                  <img
+                    src={imageUrl}
+                    alt="thumbnail-preview"
+                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                  />
+                ) : (
+                  <span style={{ color: '#999' }}>Chưa có ảnh</span>
+                )}
+              </div>
+
+              {/* Nút Upload riêng biệt */}
+              <Upload
+                name="thumbnail_file"
+                showUploadList={false} // Tắt list mặc định, vì đã có preview custom ở trên
+                beforeUpload={handleUpload}
+                accept="image/*"
+              >
+                <Button 
+                  icon={<UploadOutlined />} 
+                  loading={uploading}
+                  style={{ width: '100%' }}
+                >
+                  {imageUrl ? "Đổi ảnh khác" : "Chọn ảnh Thumbnail"}
+                </Button>
+              </Upload>
+            </div>
           </Form.Item>
 
           <Form.Item

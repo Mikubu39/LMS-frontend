@@ -1,4 +1,4 @@
-// ✅ src/pages/auth/Login.jsx
+// src/pages/auth/Login.jsx
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useLocation, Link } from "react-router-dom";
@@ -58,7 +58,7 @@ function extractRolesFromPayload(payload) {
       const lower = String(r).trim().toLowerCase();
       if (!lower) return null;
 
-      if (lower.includes("admin")) return "admin"; // ADMIN, ROLE_ADMIN,...
+      if (lower.includes("admin")) return "admin";
       if (lower.includes("teacher")) return "teacher";
       if (lower.includes("student")) return "student";
 
@@ -69,22 +69,18 @@ function extractRolesFromPayload(payload) {
 
 /* ── Helper: điều hướng theo role + from ───────── */
 function redirectByRole(navigate, roles, from) {
-  // Chỉ dùng "from" nếu nó KHÔNG phải "/" hoặc "/login"
-  const safeFrom =
-    from && from !== "/" && from !== "/login" ? from : null;
+  const safeFrom = from && from !== "/" && from !== "/login" ? from : null;
 
   if (safeFrom) {
     navigate(safeFrom, { replace: true });
     return;
   }
 
-  // Không có from "xịn" -> điều hướng theo role
   if (roles.includes("admin")) {
     navigate("/admin", { replace: true });
   } else if (roles.includes("teacher")) {
     navigate("/teacher/dashboard", { replace: true });
   } else {
-    // student
     navigate("/dashboard", { replace: true });
   }
 }
@@ -102,17 +98,12 @@ export default function Login() {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Lấy "from" nếu trước đó bị đá từ một route protected (vd: /admin)
   const from = location.state?.from?.pathname || null;
 
-  // Nếu đã đăng nhập sẵn mà vào /login → tự redirect theo role
   useEffect(() => {
     if (!isAuth || !currentUser) return;
-
     const roles = extractRolesFromPayload({ roles: currentUser.roles });
-
     console.log("⚙️ [Login/useEffect] roles từ currentUser:", roles);
-
     redirectByRole(navigate, roles, from);
   }, [isAuth, currentUser, from, navigate]);
 
@@ -131,38 +122,50 @@ export default function Login() {
       // 🔹 B1. Gọi API đăng nhập
       const res = await AuthApi.login({ email, password });
 
-      const token =
+      const accessToken =
         res?.access_token ||
-        res?.data?.access_token ||
-        localStorage.getItem("access_token");
+        res?.data?.access_token;
+      
+      // 🟢 QUAN TRỌNG: Lấy refresh_token
+      const refreshToken = 
+        res?.refresh_token || 
+        res?.data?.refresh_token;
 
-      if (!token) {
+      if (!accessToken) {
         throw new Error("Không nhận được access_token từ server");
       }
 
-      // Đảm bảo token nằm trong localStorage (cho authSlice khởi tạo lại sau F5)
-      localStorage.setItem("access_token", token);
+      // 🟢 QUAN TRỌNG: Lưu cả 2 token vào localStorage
+      localStorage.setItem("access_token", accessToken);
+      
+      if (refreshToken) {
+        localStorage.setItem("refresh_token", refreshToken);
+      } else {
+        console.warn("⚠️ Không nhận được refresh_token từ Backend!");
+      }
 
       // 🔹 B2. Decode token lấy payload
-      const payload = parseJwt(token) || {};
-
+      const payload = parseJwt(accessToken) || {};
       console.log("🧾 [Login] JWT payload:", payload);
 
       // Chuẩn hóa roles
       const roles = extractRolesFromPayload(payload);
 
-      console.log("🎭 [Login] roles sau extract:", roles);
-
       // 🔹 B3. Chuẩn hóa user cho Redux
       const user = {
+        user_id: payload.sub || payload.user_id || payload.id, 
+        full_name: payload.name || payload.full_name || email.split("@")[0],
         id: payload.sub || `u_${Date.now()}`,
         name: payload.name || email.split("@")[0],
         email: payload.email || email,
-        avatar: "https://i.pravatar.cc/80?img=47",
+        avatar: payload.avatar || "https://i.pravatar.cc/80?img=47",
         roles,
         isAuthenticated: true,
         online: true,
       };
+
+      // Lưu user snapshot để dùng ngay khi reload
+      localStorage.setItem("user", JSON.stringify(user));
 
       // 🔹 B4. Cập nhật Redux store
       dispatch(setUser(user));
@@ -170,7 +173,7 @@ export default function Login() {
       // 🔹 B5. Thông báo
       message.success("Đăng nhập thành công 🎉");
 
-      // 🔹 B6. Điều hướng theo role (ưu tiên from hợp lệ)
+      // 🔹 B6. Điều hướng
       redirectByRole(navigate, roles, from);
     } catch (error) {
       console.error("❌ Lỗi khi đăng nhập:", error);
@@ -202,7 +205,6 @@ export default function Login() {
             <h2>Mankai Academy</h2>
           </div>
 
-          {/* form */}
           <h1>Đăng nhập</h1>
           <p className="subtitle">
             Khám phá kho tàng kiến thức bất tận cùng bộ tài liệu độc quyền của

@@ -1,0 +1,174 @@
+/* src/css/messenger.css */
+
+/* LỚP PHỦ FULL MÀN HÌNH */
+.messenger-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #fff;
+    z-index: 9999; /* Đảm bảo nằm trên cùng (trên cả Header Admin) */
+    display: flex;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* --- CỘT TRÁI: SIDEBAR --- */
+.messenger-sidebar {
+    width: 360px; /* Rộng hơn chút chuẩn Messenger */
+    background: #fff;
+    border-right: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header của Sidebar (Chứa tiêu đề + Nút đóng) */
+.messenger-sidebar-header {
+    height: 60px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.messenger-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #050505;
+}
+
+.messenger-search {
+    padding: 12px 16px;
+}
+
+.contact-list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+/* Item danh sách user */
+.contact-item {
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border-radius: 8px;
+    margin: 0 8px;
+}
+
+.contact-item:hover {
+    background-color: #f5f5f5;
+}
+
+.contact-item.active {
+    background-color: #e5f1ff; /* Màu xanh nhạt khi active */
+}
+
+.contact-info {
+    margin-left: 12px;
+    flex: 1;
+    overflow: hidden;
+}
+
+.contact-name {
+    font-weight: 500;
+    font-size: 15px;
+    color: #050505;
+    margin-bottom: 2px;
+}
+
+.contact-preview {
+    font-size: 13px;
+    color: #65676b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.contact-preview.unread {
+    color: #0084ff;
+    font-weight: 700;
+}
+
+/* --- CỘT PHẢI: KHUNG CHAT --- */
+.messenger-chat-window {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+}
+
+.chat-header {
+    height: 60px;
+    padding: 0 16px;
+    border-bottom: 1px solid #e0e0e0;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    z-index: 10;
+}
+
+.chat-user-name {
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    background: #fff; /* Messenger trắng hoặc xám nhạt */
+    display: flex;
+    flex-direction: column;
+    gap: 4px; /* Khoảng cách giữa các tin nhắn gần nhau nhỏ hơn */
+}
+
+.message-row {
+    display: flex;
+    align-items: flex-end; /* Avatar nằm dưới cùng của block tin nhắn */
+    margin-bottom: 8px;
+}
+
+.message-row.mine {
+    justify-content: flex-end;
+}
+
+.message-bubble {
+    max-width: 65%;
+    padding: 8px 12px;
+    border-radius: 18px;
+    font-size: 15px;
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+
+.message-bubble.mine {
+    background-color: #0084ff; /* Xanh Messenger */
+    color: white;
+}
+
+.message-bubble.theirs {
+    background-color: #e4e6eb; /* Xám Messenger */
+    color: #050505;
+}
+
+.chat-input-area {
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #fff;
+}
+
+.empty-chat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #65676b;
+}

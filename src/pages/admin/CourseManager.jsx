@@ -12,7 +12,7 @@ import {
   AppstoreOutlined, EditOutlined, RightOutlined, SearchOutlined 
 } from "@ant-design/icons";
 
-// 👇 THAY ĐỔI 1: Dùng thư viện chuyên dụng cho YouTube (Nhớ npm install react-youtube)
+
 import YouTube from 'react-youtube';
 
 // Import API
@@ -21,7 +21,7 @@ import { SessionApi } from "@/services/api/sessionApi.jsx";
 import { LessonApi } from "@/services/api/lessonApi.jsx";
 import { QuizApi } from "@/services/api/quizApi.jsx";
 
-// 👇 IMPORT CKEDITOR COMPONENT
+
 import CkEditorField from "@/components/form/CkEditorField.jsx"; 
 
 import "@/css/course-manager.css";
@@ -60,7 +60,6 @@ export default function CourseManager() {
   const [modalAction, setModalAction] = useState(null); 
   const [addItemType, setAddItemType] = useState(null); 
 
-  // 👇 THAY ĐỔI 2: Thêm hàm helper lấy ID Video từ Link
   const getYouTubeID = (url) => {
     if (!url) return null;
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
@@ -331,7 +330,7 @@ export default function CourseManager() {
                               <div style={{marginTop: 20, borderRadius: 12, overflow: 'hidden', height: 360, background: '#000', position: 'relative'}}>
                                 {getYouTubeID(editContent) ? (
                                     <YouTube
-                                        // key giúp reset player khi đổi video
+                                        
                                         key={getYouTubeID(editContent)} 
                                         videoId={getYouTubeID(editContent)}
                                         opts={{
