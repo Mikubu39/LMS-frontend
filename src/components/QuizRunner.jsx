@@ -1,12 +1,15 @@
 // src/components/QuizRunner.jsx
 import React, { useEffect, useState, useRef } from "react";
-import { Radio, Button, Spin, message, Progress, Input } from "antd"; // 👈 Thêm Input
-import { ReloadOutlined, ArrowRightOutlined } from "@ant-design/icons";
+import { Radio, Button, Spin, message, Progress, Input } from "antd"; 
+import { ReloadOutlined, ArrowRightOutlined, CloseOutlined } from "@ant-design/icons";
 import { QuizApi } from "@/services/api/quizApi";
 import "../css/quiz.css";
 
-const IMG_PASS = "https://cdn-icons-png.flaticon.com/512/616/616490.png"; 
-const IMG_FAIL = "https://cdn-icons-png.flaticon.com/512/616/616554.png"; 
+// 👇👇👇 SỬA PHẦN IMPORT ẢNH TẠI ĐÂY 👇👇👇
+// Import từ thư mục assets (dùng đường dẫn tương đối)
+import imgPass from "../assets/pass.png";
+import imgFail from "../assets/khongdat.png"; 
+// 👆👆👆 --------------------------------- 👆👆👆
 
 export default function QuizRunner({ 
   isOpen,         
@@ -20,9 +23,7 @@ export default function QuizRunner({
   const [viewState, setViewState] = useState("loading"); 
   const [currentQIndex, setCurrentQIndex] = useState(0);
   
-  // State lưu đáp án: { [question_id]: value }
-  // Với trắc nghiệm: value = "string đáp án"
-  // Với điền từ: value = [{ index: 3, answer: "..." }, { index: 5, answer: "..." }]
+  // State lưu đáp án
   const [answers, setAnswers] = useState({}); 
   const [timeLeft, setTimeLeft] = useState(0); 
   const [resultData, setResultData] = useState(null);
@@ -88,17 +89,12 @@ export default function QuizRunner({
   // 2. Điền từ (Input)
   const handleFillBlankChange = (qId, slotIndex, textValue) => {
     setAnswers((prev) => {
-      // Lấy mảng đáp án hiện tại của câu hỏi này (nếu chưa có thì là mảng rỗng)
       const currentArr = Array.isArray(prev[qId]) ? [...prev[qId]] : [];
-      
-      // Tìm xem đã có object cho slotIndex này chưa
       const existingIdx = currentArr.findIndex(item => item.index === slotIndex);
 
       if (existingIdx > -1) {
-        // Update
         currentArr[existingIdx].answer = textValue;
       } else {
-        // Thêm mới
         currentArr.push({ index: slotIndex, answer: textValue });
       }
 
@@ -121,7 +117,6 @@ export default function QuizRunner({
     clearInterval(timerRef.current);
     setLoading(true);
     
-    // Convert answers object thành array cho Backend
     const payload = {
       lessonItemId: lessonItemId,
       answers: Object.keys(finalAnswers).map((qId) => ({
@@ -153,10 +148,6 @@ export default function QuizRunner({
 
   // Helper render input cho điền từ
   const renderFillInBlankInputs = (question) => {
-    // Backend trả về mảng answers chứa các slot cần điền (có index)
-    // Ví dụ: answers: [{index: 3, answer: 'a'}, {index: 5, answer: 'b'}]
-    // Lưu ý: trường 'answer' ở đây là đáp án đúng (bị lộ từ API), ta chỉ dùng 'index' để tạo ô input
-    
     const slots = question.answers || [];
     if (slots.length === 0) return <div style={{color:'red'}}>Lỗi: Không tìm thấy vị trí điền từ</div>;
 
@@ -165,7 +156,6 @@ export default function QuizRunner({
     return (
       <div className="quiz-fill-blank-container">
         {slots.map((slot, i) => {
-           // Tìm giá trị user đang nhập cho slot này
            const userEntry = currentAnswerArr.find(a => a.index === slot.index);
            const val = userEntry ? userEntry.answer : "";
 
@@ -194,13 +184,29 @@ export default function QuizRunner({
     return (
       <div className="quiz-container">
         <div className="quiz-result-view">
-          <img src={isPass ? IMG_PASS : IMG_FAIL} alt="Mascot" className="quiz-mascot-img" />
+          
+          {/* 👇 SỬ DỤNG BIẾN ĐÃ IMPORT (imgPass / imgFail) */}
+          <img 
+            src={isPass ? imgPass : imgFail} 
+            alt="Result Mascot" 
+            className="quiz-mascot-img" 
+          />
+          
           <div className="quiz-score-circle">
-            <Progress type="circle" percent={resultData.score} format={(p) => <span style={{fontSize: 20, fontWeight:'bold'}}>{p}/100</span>} strokeColor={isPass ? "#12B76A" : "#ff4d4f"} width={120} />
+            <Progress 
+                type="circle" 
+                percent={resultData.score} 
+                format={(p) => <span style={{fontSize: 20, fontWeight:'bold'}}>{p}/100</span>} 
+                strokeColor={isPass ? "#12B76A" : "#ff4d4f"} 
+                width={120} 
+            />
           </div>
           <h2 className="quiz-result-title">{isPass ? "Chúc mừng!" : "Chưa đạt yêu cầu!"}</h2>
           <div className="quiz-action-row">
-            <button className="quiz-btn quiz-btn-secondary" onClick={() => fetchQuizDetail()}><ReloadOutlined style={{marginRight:8}}/> Làm lại</button>
+            <button className="quiz-btn quiz-btn-secondary" onClick={() => fetchQuizDetail()}>
+                <ReloadOutlined style={{marginRight:8}}/> Làm lại
+            </button>
+            <Button style={{marginLeft: 10}} onClick={onClose}>Đóng</Button>
           </div>
         </div>
       </div>
@@ -214,10 +220,8 @@ export default function QuizRunner({
   if (currentQuestion.type === "MULTIPLE_CHOICE") {
       isNextDisabled = !answers[currentQuestion.question_id];
   } else if (currentQuestion.type === "FILL_IN_THE_BLANK") {
-      // Phải điền đủ số lượng ô trống mới cho next (tùy chọn)
       const currentAns = answers[currentQuestion.question_id] || [];
       const requiredSlots = currentQuestion.answers?.length || 0;
-      // Chỉ cần điền ít nhất 1 ô hay bắt buộc full? Ở đây để bắt buộc full:
       const filledCount = currentAns.filter(a => a.answer && a.answer.trim() !== "").length;
       isNextDisabled = filledCount < requiredSlots;
   }
@@ -225,20 +229,28 @@ export default function QuizRunner({
   return (
     <div className="quiz-container">
       <div className="quiz-doing-view">
-        <div className="quiz-header-info">
-            <span>Thời gian còn lại: {formatTime(timeLeft)}</span>
+        <div className="quiz-header-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <span style={{ fontSize: '16px', fontWeight: '600' }}>
+               ⏳ Thời gian: <span style={{ color: '#ff4d4f' }}>{formatTime(timeLeft)}</span>
+            </span>
+
+            <Button 
+              type="default" 
+              danger 
+              icon={<CloseOutlined />} 
+              onClick={onClose}
+            >
+              Thoát
+            </Button>
         </div>
 
         <div>
           <div className="quiz-question-number">Câu số {currentQIndex + 1}</div>
-          {/* Hiển thị đề bài, hỗ trợ render HTML nếu cần */}
           <h3 className="quiz-question-text" dangerouslySetInnerHTML={{__html: currentQuestion.question_text}}></h3>
           
-          {/* 👇 LOGIC PHÂN LOẠI CÂU HỎI Ở ĐÂY 👇 */}
           {currentQuestion.type === "FILL_IN_THE_BLANK" ? (
              renderFillInBlankInputs(currentQuestion)
           ) : (
-             /* MẶC ĐỊNH LÀ TRẮC NGHIỆM */
              <Radio.Group 
                 className="quiz-options-group"
                 onChange={(e) => handleSelectMultiChoice(currentQuestion.question_id, e.target.value)}

@@ -12,9 +12,12 @@ import LessonPage from "./pages/LessonPage.jsx";
 import Posts from "./pages/Posts.jsx";
 import PostDetail from "./pages/PostDetail.jsx";
 import RequireAuth from "./pages/auth/RequireAuth.jsx";
-import SearchPage from "./pages/Search.jsx"
+import SearchPage from "./pages/Search.jsx";
+// 👇 IMPORT TRANG MỚI
+import EssayManagementPage from "./pages/EssayManagementPage.jsx"; 
+
 // ===== ADMIN PAGES =====
-import AdminProfile from "./pages/admin/AdminProfile";   
+import AdminProfile from "./pages/admin/AdminProfile";    
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminLayout from "./layouts/AdminLayout.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
@@ -70,6 +73,9 @@ export default function App() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/lesson/:courseId" element={<LessonPage />} />
             <Route path="/search" element={<SearchPage />} />
+            
+            {/* 👇 ROUTE MỚI: QUẢN LÝ ESSAY 👇 */}
+            <Route path="/my-essays" element={<EssayManagementPage />} />
           </Route>
 
           {/* ========= TEACHER DOMAIN ========= */}
@@ -91,7 +97,7 @@ export default function App() {
               {/* /admin/courses - danh sách khoá */}
               <Route path="courses" element={<CourseManagement />} />
 
-              {/* /admin/courses/:courseId/manage - quản lý khoá (giống ảnh bạn gửi) */}
+              {/* /admin/courses/:courseId/manage - quản lý khoá */}
               <Route
                 path="courses/:courseId/manage"
                 element={<CourseManager />}
@@ -99,7 +105,7 @@ export default function App() {
               <Route path="question-banks" element={<QuizManager />} />
               <Route path="questions" element={<QuestionManager />} />
               <Route path="classes" element={<ClassManagement />} />
-              <Route path="classes/:classId" element={<ClassDetail />} /> {/* Route Mới */}
+              <Route path="classes/:classId" element={<ClassDetail />} /> 
               {/* /admin/posts - quản lý bài viết */}
               <Route path="posts" element={<PostManagement />} />
               <Route path="students" element={<StudentManager />} />

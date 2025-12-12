@@ -83,6 +83,12 @@ export default function Header() {
     setOpen(false);
     navigate("/dashboard");
   };
+  
+  // 👇 Đã thêm hàm điều hướng sang trang My Essays
+  const handleGoMyEssays = () => {
+    setOpen(false);
+    navigate("/my-essays");
+  };
 
   // click icon tìm kiếm -> /search
   const handleGoSearch = () => {
@@ -174,6 +180,14 @@ export default function Header() {
                     onClick={handleGoMyCourses}
                   >
                     Khóa học của tôi
+                  </button>
+                  
+                  {/* 👇 ĐÃ CẬP NHẬT: Gắn sự kiện onClick vào hàm handleGoMyEssays */}
+                  <button
+                    className="mk-user-menu-item"
+                    onClick={handleGoMyEssays}
+                  >
+                    Quản lí bài essay
                   </button>
 
                   <button
