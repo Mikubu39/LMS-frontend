@@ -47,6 +47,11 @@ export const ClassApi = {
     return res.data; 
   },
 
+  getMyEnrollments: async () => {
+    const res = await http.get("/classes/my-enrollments");
+    return res.data;
+  },
+  
   getQuizResults: async (quizId, lessonItemId) => {
     // Gửi request: GET /quizzes/:id/results?lessonItemId=...
     const res = await http.get(`/quizzes/${quizId}/results`, {

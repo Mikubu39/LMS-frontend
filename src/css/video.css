@@ -1,6 +1,5 @@
-/* src/css/lesson.css */
+/* src/css/video.css */
 
-/* Wrapper chính */
 .secure-yt-wrapper {
   position: relative;
   width: 100%;
@@ -8,48 +7,137 @@
   background-color: #000;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* Quan trọng cho fullscreen */
+  overflow: hidden;
+  user-select: none;
 }
 
-/* Khi kích hoạt Fullscreen */
 .secure-yt-wrapper:fullscreen {
   width: 100vw;
   height: 100vh;
 }
 
-.secure-yt-wrapper:fullscreen .youtube-iframe-fix {
-  height: calc(100% - 60px) !important; /* Trừ đi chiều cao control bar */
+.yt-video-container {
+  flex: 1;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
-/* Lớp phủ chặn click vào iframe */
+.youtube-iframe-fix {
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Quan trọng: Chặn tương tác chuột xuống iframe YouTube */
+}
+
+.secure-yt-wrapper:fullscreen .youtube-iframe-fix {
+  height: 100% !important;
+}
+
+/* Loading Overlay */
+.yt-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #fff;
+  font-size: 14px;
+}
+
+/* Blocker vô hình để bắt sự kiện click play/pause */
 .yt-click-blocker {
   position: absolute;
   inset: 0;
   background: transparent;
   z-index: 10;
+  cursor: pointer;
 }
 
-/* Thanh điều khiển Custom */
+/* OVERLAY KHI PAUSE - CHE NÚT SHARE/RELATED CỦA YOUTUBE */
+.yt-pause-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4); /* Nền tối mờ che giao diện dưới */
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(2px); /* Làm mờ nhẹ video bên dưới */
+}
+
+.yt-big-play-btn {
+  font-size: 64px;
+  color: rgba(255, 255, 255, 0.9);
+  transition: transform 0.2s, color 0.2s;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+}
+
+.yt-pause-overlay:hover .yt-big-play-btn {
+  color: #E65D25;
+  transform: scale(1.1);
+}
+
+/* Control Bar */
 .yt-custom-controls {
-  height: 50px;
-  background: rgba(20, 20, 20, 0.9);
+  height: 54px;
+  background: rgba(20, 20, 20, 0.95);
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 0 16px;
-  z-index: 20;
+  z-index: 30;
   border-top: 1px solid #333;
 }
 
-/* Slider của Antd Override */
+/* Nút bấm chung */
+.yt-control-btn {
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+  min-width: 32px;
+}
+
+.yt-control-btn:hover {
+  color: #E65D25;
+}
+
+/* Volume Control Area */
+.yt-volume-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 110px; /* Độ rộng cố định cho khu vực volume */
+}
+
+.yt-volume-slider {
+  flex: 1;
+  width: 70px;
+}
+
+/* Seek Slider Area */
+.yt-seek-slider {
+  flex: 1;
+  margin: 0 8px;
+}
+
+/* Ant Design Slider Overrides */
 .yt-custom-controls .ant-slider {
   margin: 0;
   padding: 0;
-  flex: 1;
 }
 
 .yt-custom-controls .ant-slider-rail {
-  background-color: #444;
+  background-color: #555;
 }
 
 .yt-custom-controls .ant-slider-track {
@@ -58,27 +146,20 @@
 
 .yt-custom-controls .ant-slider-handle {
   border-color: #E65D25;
+  background-color: #fff;
+}
+.yt-custom-controls .ant-slider-handle:focus,
+.yt-custom-controls .ant-slider-handle:hover {
+    box-shadow: 0 0 0 4px rgba(230, 93, 37, 0.3);
 }
 
-/* Nút bấm */
-.yt-control-btn {
-  color: #fff;
-  font-size: 24px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  transition: color 0.2s;
-}
-
-.yt-control-btn:hover {
-  color: #E65D25;
-}
-
+/* Time Display */
 .yt-time-display {
   color: #ddd;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
-  min-width: 80px;
-  text-align: right;
+  min-width: 90px;
+  text-align: center;
   font-weight: 500;
+  user-select: none;
 }

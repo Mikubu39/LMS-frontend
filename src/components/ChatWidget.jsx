@@ -1,311 +1,248 @@
 // src/components/ChatWidget.jsx
 import { useEffect, useState, useRef } from 'react';
-import { Avatar, Input, Button, Badge, Skeleton } from 'antd';
+import { Avatar, Input, Button, Badge, Image } from 'antd';
 import { 
-  SendOutlined, 
-  UserOutlined, 
-  SearchOutlined, 
-  CloseOutlined, 
-  QuestionCircleOutlined 
+  SendOutlined, UserOutlined, CloseOutlined, 
+  ArrowLeftOutlined, PictureOutlined, LoadingOutlined
 } from '@ant-design/icons';
 import io from 'socket.io-client';
 import { ChatApi } from '@/services/api/chatApi';
+import { UploadApi } from '@/services/api/uploadApi'; 
 import "@/css/messenger.css"; 
 
 const socket = io('http://localhost:3000'); 
 
-export default function ChatWidget({ open, onClose, currentUser }) {
-  // --- STATE CHUNG ---
+export default function ChatWidget({ open, onClose, currentUser, onRead }) {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const [isUploading, setIsUploading] = useState(false);
   
-  // --- STATE CHO GIÁO VIÊN (Messenger Mode) ---
   const [contacts, setContacts] = useState([]); 
   const [activeConv, setActiveConv] = useState(null); 
-  // activeConv có thể là object Conversation (Support) hoặc Sidebar Item (Teacher)
+  const [viewMode, setViewMode] = useState('list'); 
 
-  // Kiểm tra Role
-  // Lưu ý: Đảm bảo logic check role khớp với cách lưu trong localStorage của bạn
   const isStudent = currentUser?.roles?.includes('student') || currentUser?.role === 'student';
 
-  // ========================================================================
-  // 1. KHỞI TẠO DỮ LIỆU KHI MỞ WIDGET
-  // ========================================================================
+  // 1. Khởi tạo dữ liệu (Chạy 1 lần khi có user, không phụ thuộc open)
   useEffect(() => {
-    if (open && currentUser) {
+    if (currentUser) {
         if (isStudent) {
-            initStudentChat();
+            // Học viên: Mặc định vào view chat
+            if (messages.length === 0) initStudentChat();
+            setViewMode('chat');
         } else {
+            // Giảng viên: Luôn tải danh sách sidebar để cập nhật realtime
             initTeacherChat();
+            setViewMode('list');
         }
     }
-  }, [open, currentUser]);
+  }, [currentUser]); 
 
-  // 👉 Mode Học sinh: Tự động gọi API Support
-  const initStudentChat = async () => {
-      try {
-          const conversation = await ChatApi.connectSupport();
-          // Backend trả về conversation entity (có field .id)
-          setActiveConv(conversation); 
-          setMessages(conversation.messages || []);
-          
-          // Socket Join
-          socket.emit('joinRoom', conversation.id);
-          setTimeout(scrollToBottom, 200);
-      } catch (error) {
-          console.error("Lỗi kết nối Support", error);
-      }
-  };
-
-  // 👉 Mode Giáo viên: Tải danh sách Sidebar
-  const initTeacherChat = async () => {
-      try {
-          const data = await ChatApi.getSidebar();
-          setContacts(data);
-      } catch (error) {
-          console.error("Lỗi tải sidebar", error);
-      }
-  };
-
-  const scrollToBottom = () => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  // ========================================================================
-  // 2. XỬ LÝ SOCKET REAL-TIME
-  // ========================================================================
+  // 2. Lắng nghe Socket (Luôn chạy dù đóng hay mở widget)
   useEffect(() => {
     socket.on('receiveMessage', (newMsg) => {
       const convId = newMsg.conversation.id;
       const currentActiveId = activeConv?.id || activeConv?.conversation_id;
 
-      // A. CẬP NHẬT KHUNG CHAT (Nếu đang mở đúng hội thoại đó)
+      // A. Nếu đang mở cuộc hội thoại này (Active Chat)
       if (currentActiveId === convId) {
         setMessages((prev) => [...prev, newMsg]);
         
-        // Đánh dấu đã đọc (nếu tin nhắn không phải của mình)
-        if (newMsg.sender.user_id !== currentUser.user_id) {
+        // Nếu Widget đang mở (open=true) VÀ tin nhắn từ người khác
+        if (open && newMsg.sender.user_id !== currentUser.user_id) {
+             // Đánh dấu đã đọc ngay lập tức
              ChatApi.markRead(convId);
+             // Báo ra ngoài (Home/AdminLayout) để xóa Badge tổng
+             if (onRead) onRead(); 
+        } 
+        
+        // Chỉ scroll nếu đang mở
+        if (open) {
+            setTimeout(scrollToBottom, 100);
         }
-        setTimeout(scrollToBottom, 100);
       }
 
-      // B. CẬP NHẬT SIDEBAR (Chỉ dành cho Giáo viên)
+      // B. Cập nhật danh sách bên ngoài (Cho Giáo viên/Admin)
       if (!isStudent) {
-         updateTeacherSidebar(newMsg, currentActiveId);
+         updateTeacherSidebar(newMsg, currentActiveId, open);
       }
     });
 
     return () => { socket.off('receiveMessage'); };
-  }, [activeConv, currentUser, isStudent]);
+  }, [activeConv, currentUser, isStudent, onRead, open]); 
 
-  // Helper: Update Sidebar khi có tin nhắn mới
-  const updateTeacherSidebar = (newMsg, currentActiveId) => {
+  // Hàm xử lý khi bấm vào ô nhập liệu (Focus)
+  const handleInputFocus = () => {
+    if (activeConv) {
+        const convId = activeConv.id || activeConv.conversation_id;
+        // 1. Gọi API báo đã đọc
+        ChatApi.markRead(convId);
+        
+        // 2. Xóa Badge tổng ở icon bên ngoài
+        if (onRead) onRead();
+        
+        // 3. Xóa chấm đỏ trong danh sách contacts (nếu là Teacher)
+        if (!isStudent) {
+            setContacts(prev => prev.map(c => 
+                (c.conversation_id === convId) ? { ...c, unread: 0 } : c
+            ));
+        }
+    }
+  };
+
+  const initStudentChat = async () => {
+      try {
+          const conversation = await ChatApi.connectSupport();
+          setActiveConv(conversation); 
+          setMessages(conversation.messages || []);
+          socket.emit('joinRoom', conversation.id);
+      } catch (error) { console.error(error); }
+  };
+
+  const initTeacherChat = async () => {
+      try { const data = await ChatApi.getSidebar(); setContacts(data); } catch (e) {}
+  };
+
+  const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); };
+
+  // Logic cập nhật Sidebar cho Teacher khi có tin mới
+  const updateTeacherSidebar = (newMsg, currentActiveId, isChatOpen) => {
       setContacts((prev) => {
         const convId = newMsg.conversation.id;
         const existingIndex = prev.findIndex(c => c.conversation_id === convId);
+        
+        // Tăng unread khi: Tin nhắn người khác gửi ĐẾN VÀ (Widget đóng HOẶC Đang xem chat khác)
+        const isNotViewing = !isChatOpen || currentActiveId !== convId;
+        const shouldIncreaseUnread = newMsg.sender.user_id !== currentUser.user_id && isNotViewing;
 
         if (existingIndex > -1) {
-            // Cập nhật item cũ
             const oldItem = prev[existingIndex];
             const updatedItem = {
                 ...oldItem,
-                last_msg: newMsg.content,
+                last_msg: newMsg.type === 'image' ? '[Hình ảnh]' : newMsg.content,
                 last_time: new Date(),
-                // Tăng unread nếu không đang mở hội thoại này VÀ người gửi không phải mình
-                unread: (newMsg.sender.user_id !== currentUser.user_id && currentActiveId !== convId) 
-                        ? (oldItem.unread || 0) + 1 : 0
+                unread: shouldIncreaseUnread ? (oldItem.unread || 0) + 1 : 0
             };
-            // Xóa cũ, thêm mới vào đầu
+            // Đưa tin nhắn mới lên đầu
             const newList = [...prev];
             newList.splice(existingIndex, 1);
             return [updatedItem, ...newList];
         } else {
-            // Nếu hội thoại chưa có trong list (Học sinh mới chat lần đầu) -> Reload sidebar
+            // Nếu là người mới chưa có trong list -> Load lại
             initTeacherChat(); 
             return prev;
         }
       });
   }
 
-  // ========================================================================
-  // 3. CÁC HÀM XỬ LÝ SỰ KIỆN
-  // ========================================================================
-  
-  // Gửi tin nhắn
-  const handleSend = () => {
-    if (!inputValue.trim() || !activeConv || !currentUser) return;
-    
-    // Normalize ID: Student dùng .id, Teacher sidebar dùng .conversation_id
-    const convId = activeConv.id || activeConv.conversation_id;
+  const handleSend = (content = inputValue, type = 'text') => {
+    if (!content.trim() && type === 'text') return;
+    if (!activeConv || !currentUser) return;
 
+    // Khi gửi tin -> Coi như đã đọc
+    handleInputFocus();
+
+    const convId = activeConv.id || activeConv.conversation_id;
     socket.emit('sendMessage', {
-      conversationId: convId,
-      senderId: currentUser.user_id,
-      content: inputValue
+      conversationId: convId, senderId: currentUser.user_id, content: content, type: type
     });
-    setInputValue("");
+    if (type === 'text') setInputValue("");
   };
 
-  // Giáo viên chọn 1 học sinh từ sidebar
+  const handleImageSelect = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+          setIsUploading(true);
+          const res = await UploadApi.uploadImage(file);
+          if (res && res.secure_url) handleSend(res.secure_url, 'image');
+      } catch (error) { console.error(error); } finally {
+          setIsUploading(false);
+          if (fileInputRef.current) fileInputRef.current.value = null; 
+      }
+  };
+
   const handleTeacherSelectContact = async (contact) => {
-      // Reset unread UI
+      // Khi chọn user từ danh sách -> Xóa unread của user đó
       setContacts(prev => prev.map(c => c.conversation_id === contact.conversation_id ? { ...c, unread: 0 } : c));
       
-      // Mark read DB
-      if (contact.unread > 0) ChatApi.markRead(contact.conversation_id);
-
+      // Nếu user này đang có tin chưa đọc -> Xóa badge tổng bên ngoài luôn
+      if (contact.unread > 0 && onRead) {
+           onRead(); 
+      }
+      
       setActiveConv(contact);
-      setMessages([]); 
-
-      // Load full messages
+      setViewMode('chat'); 
       const conversation = await ChatApi.initConversation(contact.partner_id);
       setMessages(conversation.messages || []);
-      
-      // Join room
       socket.emit('joinRoom', conversation.id);
       setTimeout(scrollToBottom, 200);
   };
 
-  if (!open) return null;
+  const handleBackToList = () => { setViewMode('list'); setActiveConv(null); };
 
+  // 🟢 QUAN TRỌNG: Không dùng "if (!open) return null" nữa để component luôn sống (alive)
+  // Dùng CSS để ẩn hiện
   return (
-    <div className="messenger-overlay">
-      
-      {/* === CỘT TRÁI (CHỈ HIỆN VỚI GIÁO VIÊN) === */}
-      {!isStudent && (
-          <div className="messenger-sidebar">
-              <div className="messenger-sidebar-header">
-                 <div className="messenger-title">Hộp thư hỗ trợ</div>
-                 <Button shape="circle" icon={<CloseOutlined />} onClick={onClose} />
-              </div>
-              
-              <div className="messenger-search">
-                <Input prefix={<SearchOutlined />} placeholder="Tìm kiếm học viên..." style={{borderRadius: 20}} />
-              </div>
+    <div className="chat-widget-container" style={{ display: open ? 'flex' : 'none' }}>
+      <div className="chat-widget-header">
+        {!isStudent && viewMode === 'chat' && (
+             <Button type="text" icon={<ArrowLeftOutlined style={{color: '#fff'}}/>} onClick={handleBackToList} />
+        )}
+        <div className="header-title">{viewMode === 'list' ? 'Tin nhắn' : (activeConv?.full_name || 'Hỗ trợ')}</div>
+        <div className="header-actions"><CloseOutlined onClick={onClose} style={{cursor: 'pointer'}} /></div>
+      </div>
 
-              <div className="contact-list">
-                  {contacts.length === 0 && <div style={{padding: 20, textAlign: 'center', color: '#999'}}>Chưa có tin nhắn nào</div>}
-                  
-                  {contacts.map(c => (
-                      <div 
-                          key={c.conversation_id} 
-                          className={`contact-item ${activeConv?.conversation_id === c.conversation_id ? 'active' : ''}`}
-                          onClick={() => handleTeacherSelectContact(c)}
-                      >
-                          <Badge count={c.unread} offset={[-5, 5]} color="#ff4d4f">
-                              <Avatar size={50} icon={<UserOutlined />} src={c.avatar} />
-                          </Badge>
-                          <div className="contact-info">
-                              <div className="contact-name">{c.full_name}</div>
-                              <div className={`contact-preview ${c.unread > 0 ? 'unread' : ''}`}>
-                                  {c.unread > 0 ? <b>{c.unread} tin nhắn mới</b> : (c.last_msg || "...")}
-                              </div>
-                          </div>
+      {!isStudent && viewMode === 'list' && (
+          <div className="chat-widget-body list-mode">
+              {contacts.map(c => (
+                  <div key={c.conversation_id} className="widget-contact-item" onClick={() => handleTeacherSelectContact(c)}>
+                      <Badge dot={c.unread > 0} color="red"><Avatar src={c.avatar} icon={<UserOutlined />} size={40} /></Badge>
+                      <div className="widget-contact-info">
+                          <div className="name">{c.full_name}</div>
+                          <div className={`preview ${c.unread > 0 ? 'unread' : ''}`}>{c.last_msg || "Bắt đầu trò chuyện"}</div>
                       </div>
-                  ))}
-              </div>
+                  </div>
+              ))}
           </div>
       )}
 
-      {/* === CỘT PHẢI (KHUNG CHAT) === */}
-      <div 
-        className="messenger-chat-window" 
-        style={isStudent ? { width: '100%', height: '100%' } : {}}
-      >
-          
-          {/* Header */}
-          <div className="chat-header">
-              {isStudent ? (
-                  // HEADER HỌC SINH
-                  <>
-                    <Avatar 
-                        style={{ backgroundColor: '#1890ff', verticalAlign: 'middle' }} 
-                        size="large" 
-                        icon={<QuestionCircleOutlined />} 
-                    />
-                    <div style={{marginLeft: 12}}>
-                        <div className="chat-user-name" style={{fontSize: 18}}>Hỗ trợ học tập</div>
-                        <div style={{fontSize: 12, color: '#888'}}>Kết nối với giảng viên phụ trách</div>
-                    </div>
-                    <div style={{marginLeft: 'auto'}}>
-                        <Button type="text" icon={<CloseOutlined style={{fontSize: 20}} />} onClick={onClose} />
-                    </div>
-                  </>
-              ) : (
-                  // HEADER GIÁO VIÊN
-                  activeConv ? (
-                    <>
-                        <Avatar src={activeConv.avatar} icon={<UserOutlined />} size="large" />
-                        <div style={{marginLeft: 12}}>
-                            <div className="chat-user-name">{activeConv.full_name}</div>
-                            <div style={{fontSize: 12, color: '#1890ff'}}>Học viên</div>
-                        </div>
-                    </>
-                  ) : (
-                    <div className="chat-user-name">Chọn một cuộc hội thoại</div>
-                  )
-              )}
+      {viewMode === 'chat' && (
+          <div className="chat-widget-body chat-mode">
+             <div className="messages-list">
+                 {messages.map((msg, index) => {
+                     const isMine = msg.sender.user_id === currentUser.user_id;
+                     const isImg = msg.type === 'image' || (msg.content && msg.content.match(/\.(jpeg|jpg|gif|png)$/i));
+                     return (
+                         <div key={index} className={`msg-row ${isMine ? 'mine' : 'theirs'}`}>
+                             <div className="msg-content">
+                                 {isImg ? <Image src={msg.content} width={120} style={{borderRadius: 8}} preview={{mask:false}}/> : <span className="msg-text">{msg.content}</span>}
+                             </div>
+                         </div>
+                     )
+                 })}
+                 <div ref={messagesEndRef} />
+             </div>
+             <div className="chat-input-area">
+                 <input type="file" ref={fileInputRef} style={{display: 'none'}} accept="image/*" onChange={handleImageSelect} />
+                 <Button type="text" icon={isUploading ? <LoadingOutlined /> : <PictureOutlined />} onClick={() => fileInputRef.current.click()} disabled={isUploading} />
+                 
+                 {/* 🟢 Sự kiện quan trọng: onFocus */}
+                 <Input 
+                    value={inputValue} 
+                    onChange={(e) => setInputValue(e.target.value)} 
+                    onPressEnter={() => handleSend()} 
+                    onFocus={handleInputFocus} 
+                    placeholder="Nhập tin nhắn..." 
+                    bordered={false} 
+                 />
+                 
+                 <Button type="text" icon={<SendOutlined style={{color: '#1890ff'}} />} onClick={() => handleSend()} />
+             </div>
           </div>
-
-          {/* Messages List */}
-          <div className="chat-messages" style={{backgroundColor: isStudent ? '#f9f9f9' : '#fff'}}>
-              {(!activeConv && !isStudent) ? (
-                  <div className="empty-chat">
-                      <img src="https://gw.alipayobjects.com/zos/rmsportal/wOjLzTSmcRzUqQwlAOHK.svg" alt="chat" width={120} style={{opacity: 0.5}} />
-                      <h3 style={{marginTop: 20, color: '#666'}}>Chọn học viên để bắt đầu hỗ trợ</h3>
-                  </div>
-              ) : (
-                  <>
-                    {messages.length === 0 && isStudent && (
-                        <div style={{textAlign: 'center', padding: 20, color: '#999'}}>
-                            <p>Chào bạn, giảng viên phụ trách sẽ giải đáp thắc mắc của bạn tại đây.</p>
-                        </div>
-                    )}
-
-                    {messages.map((msg, index) => {
-                        const isMine = msg.sender.user_id === currentUser.user_id;
-                        return (
-                            <div key={msg.id || index} className={`message-row ${isMine ? 'mine' : ''}`}>
-                                {/* Avatar người đối diện */}
-                                {!isMine && (
-                                    isStudent 
-                                    ? <Avatar size={28} icon={<QuestionCircleOutlined />} style={{backgroundColor: '#1890ff', marginRight: 8}} />
-                                    : <Avatar size={28} src={activeConv?.avatar} style={{marginRight: 8}} />
-                                )}
-                                
-                                <div className={`message-bubble ${isMine ? 'mine' : 'theirs'}`}>
-                                    {msg.content}
-                                </div>
-                            </div>
-                        )
-                    })}
-                    <div ref={messagesEndRef} />
-                  </>
-              )}
-          </div>
-
-          {/* Input Area */}
-          {(activeConv || isStudent) && (
-              <div className="chat-input-area">
-                  <Input 
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      onPressEnter={handleSend}
-                      placeholder={isStudent ? "Nhập câu hỏi cần hỗ trợ..." : "Nhập tin nhắn..."}
-                      style={{ borderRadius: 20, padding: '8px 15px', background: '#f5f5f5', border: 'none' }}
-                  />
-                  <Button 
-                    type="primary" 
-                    shape="circle" 
-                    icon={<SendOutlined />} 
-                    onClick={handleSend} 
-                    style={{marginLeft: 10}}
-                  />
-              </div>
-          )}
-      </div>
+      )}
     </div>
   );
 }

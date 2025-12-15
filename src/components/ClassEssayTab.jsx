@@ -78,12 +78,22 @@ export default function ClassEssayTab({ courseId, students }) {
     try {
         const values = await form.validateFields();
         setSubmittingGrade(true);
-        const updated = await ClassApi.gradeSubmission(currentSub.id, values);
+
+        // 👇 SỬA Ở ĐÂY: Ép kiểu score về Number
+        const payload = {
+          ...values,
+          score: values.score !== null && values.score !== undefined ? Number(values.score) : 0
+        };
+
+        const updated = await ClassApi.gradeSubmission(currentSub.id, payload); // Gửi payload đã sửa
         
         setSubmissionsMap(prev => ({...prev, [updated.studentId]: updated}));
         message.success("Đã chấm điểm");
         setIsGrading(false);
-    } catch(e) { message.error("Lỗi chấm điểm"); }
+    } catch(e) { 
+        console.error(e); // Log lỗi ra để xem
+        message.error("Lỗi chấm điểm: " + (e.response?.data?.message || "Không rõ nguyên nhân")); 
+    }
     finally { setSubmittingGrade(false); }
   };
 

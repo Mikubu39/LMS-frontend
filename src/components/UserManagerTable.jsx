@@ -2,18 +2,21 @@
 import { useEffect, useState } from "react";
 import { 
   Table, Button, Input, Modal, Form, Select, 
-  Tag, message, Popconfirm, Avatar, Tooltip 
+  Tag, message, Popconfirm, Avatar, Upload, Tooltip 
 } from "antd";
 import { 
   PlusOutlined, SearchOutlined, EditOutlined, 
-  DeleteOutlined, UserOutlined, ManOutlined, WomanOutlined 
+  DeleteOutlined, UserOutlined, ManOutlined, WomanOutlined,
+  UploadOutlined, DownloadOutlined, FileExcelOutlined
 } from "@ant-design/icons";
 import moment from "moment";
+import * as XLSX from "xlsx"; // 👈 Cần cài: npm install xlsx
 import { UserApi } from "@/services/api/userApi"; 
 
 export default function UserManagerTable({ role, title }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(false); // State loading khi import
   const [searchText, setSearchText] = useState("");
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -25,7 +28,7 @@ export default function UserManagerTable({ role, title }) {
     setLoading(true);
     try {
       // Gọi API lấy list user theo role
-      const res = await UserApi.getAll({ role: role, limit: 100 }); // Lấy 100 user demo
+      const res = await UserApi.getAll({ role: role, limit: 100 });
       setUsers(res || []);
     } catch (error) {
       message.error("Lỗi tải danh sách");
@@ -36,7 +39,76 @@ export default function UserManagerTable({ role, title }) {
 
   useEffect(() => { fetchUsers(); }, [role]);
 
-  // --- HANDLERS ---
+  // --- EXCEL HANDLERS ---
+
+  // 1. Tải file mẫu (Template)
+  const handleDownloadTemplate = () => {
+    // Header phải là tiếng Anh để khớp với DTO backend: email, full_name, ...
+    const rows = [
+      { 
+        full_name: "Nguyen Van A", 
+        email: "nguyenvana@example.com", 
+        password: "123", 
+        phone: "0987654321",
+        gender: "Nam",
+        address: "Ha Noi"
+      }
+    ];
+    
+    // Nếu là student thì thêm cột student_code vào mẫu
+    if(role === 'student') {
+        rows[0]["student_code"] = "SV2025001";
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+    
+    // Xuất file
+    XLSX.writeFile(workbook, `mau_import_${role}.xlsx`);
+  };
+
+  // 2. Upload file lên Server
+  const handleImportExcel = async (file) => {
+    setImporting(true);
+    try {
+      // Gọi API upload (Server sẽ xử lý đọc file)
+      const res = await UserApi.uploadExcel(file, role);
+
+      // Backend trả về: { success_count, failed_count, errors: [] }
+      if (res.failed_count === 0) {
+          message.success(`Thành công! Đã thêm ${res.success_count} ${title}.`);
+      } else {
+          message.warning(`Đã thêm ${res.success_count}. Lỗi ${res.failed_count} dòng.`);
+          console.log("Chi tiết lỗi import:", res.errors);
+          if (res.errors.length > 0) {
+            Modal.error({
+              title: "Chi tiết lỗi Import",
+              content: (
+                <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                  {res.errors.map((err, idx) => (
+                    <div key={idx} style={{ marginBottom: 5 }}>
+                      <b>Dòng {err.row} ({err.email}):</b> {err.error}
+                    </div>
+                  ))}
+                </div>
+              )
+            });
+          }
+      }
+      
+      fetchUsers(); // Refresh lại bảng dữ liệu
+    } catch (err) {
+      console.error(err);
+      const msg = err.response?.data?.message || "Lỗi khi upload file";
+      message.error(msg);
+    } finally {
+      setImporting(false);
+    }
+    return false; // Prevent antd default upload behavior
+  };
+
+  // --- CRUD HANDLERS ---
   const handleDelete = async (id) => {
     try {
       await UserApi.delete(id);
@@ -53,7 +125,6 @@ export default function UserManagerTable({ role, title }) {
       if(values.dateOfBirth) values.dateOfBirth = values.dateOfBirth.format("YYYY-MM-DD");
       
       if (editingUser) {
-        console.log("Updating user:", editingUser.user_id, values); // 👈 Log data gửi đi
         await UserApi.update(editingUser.user_id, values);
         message.success("Cập nhật thành công");
       } else {
@@ -63,14 +134,8 @@ export default function UserManagerTable({ role, title }) {
       setIsModalOpen(false);
       fetchUsers();
     } catch (err) {
-      // 👇 LOG LỖI RA CONSOLE ĐỂ XEM
       console.error("❌ Lỗi handleSave:", err);
-      
-      // Kiểm tra nếu là lỗi validate của form
-      if (err.errorFields) {
-         return; // Không cần thông báo lỗi hệ thống nếu chỉ là validate form
-      }
-
+      if (err.errorFields) return;
       message.error("Có lỗi xảy ra: " + (err.message || "Unknown error"));
     }
   };
@@ -97,7 +162,6 @@ export default function UserManagerTable({ role, title }) {
           <Avatar src={r.avatar} icon={<UserOutlined />} />
           <div>
             <div style={{ fontWeight: 600 }}>{text}</div>
-            {/* Hiển thị mã nếu là Student */}
             {role === 'student' && r.student_code && <Tag color="blue" style={{fontSize: 10}}>{r.student_code}</Tag>}
           </div>
         </div>
@@ -152,9 +216,29 @@ export default function UserManagerTable({ role, title }) {
             <h2 style={{ margin: 0 }}>{title}</h2>
             <div style={{color:'#666'}}>Quản lý danh sách {title.toLowerCase()} trong hệ thống</div>
         </div>
-        <Button type="primary" icon={<PlusOutlined />} size="large" onClick={() => openModal(null)}>
-          Thêm mới
-        </Button>
+        
+        {/* 👇 KHU VỰC BUTTONS MỚI */}
+        <div style={{display: 'flex', gap: 10}}>
+            <Tooltip title="Tải file mẫu để nhập liệu">
+                <Button icon={<DownloadOutlined />} onClick={handleDownloadTemplate}>
+                    Mẫu Excel
+                </Button>
+            </Tooltip>
+            
+            <Upload 
+                beforeUpload={handleImportExcel} 
+                showUploadList={false} 
+                accept=".xlsx, .xls"
+            >
+                <Button icon={<FileExcelOutlined />} loading={importing}>
+                   {importing ? "Đang xử lý..." : "Import Excel"}
+                </Button>
+            </Upload>
+
+            <Button type="primary" icon={<PlusOutlined />} size="large" onClick={() => openModal(null)}>
+              Thêm mới
+            </Button>
+        </div>
       </div>
 
       <div style={{ background: "white", padding: 24, borderRadius: 8 }}>
@@ -195,7 +279,7 @@ export default function UserManagerTable({ role, title }) {
              </Form.Item>
           )}
 
-          {/* Chỉ hiển thị studentCode nếu là student và đang tạo mới (hoặc edit nếu muốn) */}
+          {/* Chỉ hiển thị studentCode nếu là student */}
           {role === 'student' && (
              <Form.Item name="studentCode" label="Mã sinh viên (Tự động sinh nếu để trống)">
                 <Input placeholder="VD: SV2025..." disabled={!!editingUser} />

@@ -1,161 +1,170 @@
 // src/pages/Home.jsx
-import { useEffect, useState } from "react";
-import { FloatButton } from "antd"; 
+import { useEffect, useState, useRef } from "react";
+import { FloatButton, message } from "antd"; 
 import { MessageOutlined } from "@ant-design/icons"; 
 import io from 'socket.io-client'; 
+import { useNavigate } from "react-router-dom";
 
 import Hero from "../components/Hero";
 import CourseCard from "../components/CourseCard";
 import ChatWidget from "../components/ChatWidget"; 
 import "../css/home.css";
 
-import { CourseApi } from "@/services/api/courseApi";
+import { UserApi } from "@/services/api/userApi"; // 👈 Đổi/Thêm import này
 import { ChatApi } from "@/services/api/chatApi"; 
-
-const PAGE_SIZE = 12;
+import { ClassApi } from "@/services/api/classApi"; 
 
 export default function Home() {
+  const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
-  const [meta, setMeta] = useState({
-    page: 1,
-    limit: PAGE_SIZE,
-    total: 0,
-  });
   const [loading, setLoading] = useState(false);
+  
+  // Mapping: { [courseId]: classId }
+  const [myClasses, setMyClasses] = useState({});
 
-  // State cho Chat & Badge
+  // Chat State
   const [chatOpen, setChatOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0); 
+  const chatOpenRef = useRef(chatOpen);
+
+  useEffect(() => {
+    chatOpenRef.current = chatOpen;
+  }, [chatOpen]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    fetchCourses(1);
     
-    // 👇 LOGIC USER & SOCKET
+    // Kiểm tra user đăng nhập
     try {
       const userStr = localStorage.getItem("user");
       if (userStr) {
         const user = JSON.parse(userStr);
         setCurrentUser(user);
 
-        // 1. Gọi API lấy số lượng tin chưa đọc ban đầu
+        // 1. Gọi API lấy mapping lớp học để biết classId điều hướng
+        ClassApi.getMyEnrollments()
+          .then((data) => {
+              if (Array.isArray(data)) {
+                  const mapping = {};
+                  data.forEach(enrol => {
+                      const cId = enrol.courseId || enrol.course?.id || enrol.course_id;
+                      const clId = enrol.classId || enrol.class?.id || enrol.class_id || enrol.id;
+                      if(cId && clId) {
+                          mapping[cId] = clId;
+                      }
+                  });
+                  setMyClasses(mapping);
+              }
+          })
+          .catch(err => console.log("Lỗi load lớp:", err));
+
+        // 2. Gọi API lấy danh sách khóa học CỦA TÔI
+        fetchMyCourses();
+
+        // Chat logic
         ChatApi.getUnreadCount()
           .then((res) => setUnreadCount(res.count))
-          .catch((err) => console.error("Lỗi lấy unread count:", err));
+          .catch((err) => console.error(err));
 
-        // 👇 2. KẾT NỐI SOCKET VỚI USER ID (QUAN TRỌNG)
-        const socket = io('http://localhost:3000', {
-            query: { userId: user.user_id } // Gửi ID để Backend biết đường bắn thông báo
-        });
-        
+        const socket = io('http://localhost:3000', { query: { userId: user.user_id } });
         socket.on('receiveMessage', (newMsg) => {
-          // Nếu có tin nhắn mới VÀ người gửi không phải là mình
           if (newMsg.sender.user_id !== user.user_id) {
-             // Tăng số lượng tin chưa đọc lên 1
-             setUnreadCount((prev) => prev + 1);
+             if (!chatOpenRef.current) {
+                setUnreadCount((prev) => prev + 1);
+             }
           }
         });
-
-        return () => {
-          socket.disconnect();
-        };
+        return () => { socket.disconnect(); };
+      } else {
+        // Nếu chưa đăng nhập, set rỗng hoặc điều hướng về Login tùy bạn
+        setCourses([]);
       }
-    } catch (error) {
-      console.error("Lỗi đọc user home", error);
-    }
+    } catch (error) { console.error("Lỗi đọc user home", error); }
   }, []);
 
-  const fetchCourses = async (page = 1) => {
+  // 👇 Thay đổi logic fetch: Gọi UserApi.getMyCourses
+  const fetchMyCourses = async () => {
     try {
       setLoading(true);
-      const { courses, meta: apiMeta } = await CourseApi.getCourses({
-        page,
-        limit: PAGE_SIZE,
-      });
-
-      setCourses(courses || []);
-      setMeta({
-        page: apiMeta?.page ?? page,
-        limit: apiMeta?.limit ?? PAGE_SIZE,
-        total: apiMeta?.total ?? (courses?.length || 0),
-      });
-    } catch (err) {
-      console.error("Lỗi load courses:", err);
-    } finally {
-      setLoading(false);
+      const res = await UserApi.getMyCourses();
+      // Backend trả về { courses: [...] }
+      setCourses(res.courses || []);
+    } catch (err) { 
+      console.error(err); 
+      message.error("Không thể tải danh sách khóa học của bạn");
+    } finally { 
+      setLoading(false); 
     }
   };
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil((meta.total || courses.length || 1) / (meta.limit || PAGE_SIZE))
-  );
 
   const normalizeCourse = (raw) => {
     if (!raw) return null;
+    const cId = raw.id;
+    
     return {
-      id: raw.id ?? raw.course_id ?? raw.courseId,
-      title: raw.title ?? raw.name ?? raw.course_name,
-      image: raw.thumbnail ?? raw.image ?? "/src/assets/course card.jpg",
-      level: raw.level ?? "Beginner",
-      minutes: raw.minutes ?? raw.totalMinutes ?? raw.duration ?? 0,
-      modules: raw.modules ?? raw.totalModules ?? raw.lessonCount ?? 0,
-      teacher: raw.teacher ?? raw.instructorName ?? raw.instructor?.fullName ?? "Giang Sensei",
+      id: cId,
+      // Kiểm tra classId từ mapping (thường API getMyCourses sẽ trả về khóa học đã enroll nên chắc chắn có classId)
+      classId: myClasses[cId] || null, 
+      
+      title: raw.title,
+      image: raw.thumbnail || "/src/assets/course card.jpg",
+      level: raw.level || "Beginner",
+      // Các trường này lấy từ DTO mới cập nhật
+      minutes: raw.duration || 0,
+      modules: raw.modules || 0,
+      teacher: raw.teacherName || "Giang Sensei",
     };
   };
 
-  const handleChangePage = (page) => {
-    if (page < 1 || page > totalPages) return;
-    fetchCourses(page);
+  const handleCourseClick = (course) => {
+      if (course.classId) {
+          navigate(`/class/${course.classId}/lesson/${course.id}`);
+      } else {
+          // Trường hợp hiếm: Có trong list myCourses nhưng chưa load xong myClasses mapping
+          message.warning("Đang đồng bộ thông tin lớp học, vui lòng thử lại...");
+      }
   };
 
-  const handleOpenChat = () => {
-    setChatOpen(true);
-    setUnreadCount(0); // Reset badge
-  };
+  const handleOpenChat = () => setChatOpen(true);
 
   return (
     <div className="home-page">
       <Hero />
-
       <section className="home-courses-section">
-        <div className="home-container">
-          <h2 className="home-courses-title">TẤT CẢ KHÓA HỌC</h2>
-          {/* ... (Phần hiển thị khóa học giữ nguyên) ... */}
+         <div className="home-container">
+          <h2 className="home-courses-title">KHÓA HỌC CỦA TÔI</h2> 
+          
           {loading ? (
-            <div className="home-courses-loading">Đang tải khóa học...</div>
+             <div className="home-courses-loading">Đang tải khóa học...</div>
+          ) : !currentUser ? (
+             <div className="home-courses-empty">Vui lòng đăng nhập để xem khóa học.</div>
           ) : courses.length === 0 ? (
-            <div className="home-courses-empty">Chưa có khóa học nào</div>
+             <div className="home-courses-empty">Bạn chưa đăng ký khóa học nào.</div>
           ) : (
-            <div className="home-courses-grid">
-              {courses.map((item) => {
-                const c = normalizeCourse(item);
-                if (!c) return null;
-                return <CourseCard key={c.id} c={c} />;
-              })}
-            </div>
+             <div className="home-courses-grid">
+               {courses.map((item) => { 
+                   const c = normalizeCourse(item); 
+                   return c ? (
+                       <div key={c.id} onClick={() => handleCourseClick(c)} style={{ cursor: 'pointer' }}>
+                           <CourseCard c={c} />
+                       </div>
+                   ) : null; 
+               })}
+             </div>
           )}
 
-          <div className="home-pagination">
-             {/* ... (Code phân trang giữ nguyên) ... */}
-            <button className="home-page-btn" onClick={() => handleChangePage(meta.page - 1)} disabled={meta.page <= 1}>{"<"}</button>
-            {Array.from({ length: totalPages }).map((_, idx) => (
-                <button key={idx + 1} className={"home-page-btn " + (idx + 1 === meta.page ? "home-page-btn--active" : "")} onClick={() => handleChangePage(idx + 1)}>{idx + 1}</button>
-            ))}
-            <button className="home-page-btn" onClick={() => handleChangePage(meta.page + 1)} disabled={meta.page >= totalPages}>{">"}</button>
-          </div>
+           {/* Ẩn phân trang vì API My Courses thường trả về list full */}
+           {/* Nếu muốn phân trang client-side thì code thêm logic slice mảng courses */}
         </div>
       </section>
 
-      {/* 👇 Nút Chat Nổi */}
       {currentUser && (
         <FloatButton
           icon={<MessageOutlined />}
           type="primary"
           style={{ right: 24, bottom: 24, width: 50, height: 50 }}
           onClick={handleOpenChat}
-          // 👇 LOGIC HIỂN THỊ DOT: Chỉ hiện count nếu > 0
           badge={{ count: unreadCount, overflowCount: 99 }} 
           tooltip="Hỗ trợ học tập"
         />
@@ -165,6 +174,7 @@ export default function Home() {
         open={chatOpen} 
         onClose={() => setChatOpen(false)} 
         currentUser={currentUser}
+        onRead={() => setUnreadCount(0)} 
       />
     </div>
   );

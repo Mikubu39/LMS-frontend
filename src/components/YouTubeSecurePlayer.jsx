@@ -6,10 +6,12 @@ import {
   PlayCircleFilled, 
   PauseCircleFilled, 
   FullscreenOutlined, 
-  FullscreenExitOutlined 
+  FullscreenExitOutlined,
+  SoundOutlined,
+  MutedOutlined
 } from '@ant-design/icons';
 import { ProgressApi } from '@/services/api/progressApi';
-import "../css/video.css"; // Đảm bảo import CSS mới
+import "../css/video.css"; 
 
 const YouTubeSecurePlayer = ({ 
     videoId,      
@@ -19,12 +21,17 @@ const YouTubeSecurePlayer = ({
     onProgress      
 }) => {
     const playerRef = useRef(null); 
-    const wrapperRef = useRef(null); // Ref để bọc fullscreen
+    const wrapperRef = useRef(null);
     
     const [isPlayerReady, setIsPlayerReady] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     
+    // State Âm lượng
+    const [volume, setVolume] = useState(100);
+    const [isMuted, setIsMuted] = useState(false);
+    const [prevVolume, setPrevVolume] = useState(100);
+
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0); 
     
@@ -38,47 +45,42 @@ const YouTubeSecurePlayer = ({
         width: '100%',
         playerVars: {
             autoplay: 0, 
-            controls: 0,    
+            controls: 0,    // Tắt controls gốc
             disablekb: 1,   
             modestbranding: 1, 
-            rel: 0, 
-            fs: 0, // Tắt FS native
+            rel: 0,         // Hạn chế video liên quan (nhưng vẫn hiện khi pause nếu không che)
+            fs: 0, 
+            iv_load_policy: 3, // Tắt chú thích video
             origin: window.location.origin, 
         },
     };
 
-    // 1. LOGIC KHÔI PHỤC VỊ TRÍ (RESUME)
+    // 1. KHÔI PHỤC VỊ TRÍ
     useEffect(() => {
-        // Chỉ chạy khi Player sẵn sàng + Có dữ liệu ban đầu + CHƯA bật tracking
         if (isPlayerReady && playerRef.current && !isReadyToTrack && initialData) {
-            
             const savedPos = initialData.lastPosition || 0;
             const isCompleted = initialData.status === 'completed' || initialData.percentage >= 95;
             const savedMax = isCompleted ? 999999 : savedPos;
 
-            console.log(`🔄 Resuming at: ${savedPos}s | Max allowed: ${savedMax}s`);
-
-            // Set state nội bộ trước
             setMaxWatchedTime(savedMax);
             setCurrentTime(savedPos);
 
-            // Force Seek
             try {
                 playerRef.current.seekTo(savedPos, true);
-                playerRef.current.pauseVideo(); // Pause ngay để tránh tự chạy
+                playerRef.current.pauseVideo();
+                // Set volume mặc định
+                playerRef.current.setVolume(volume);
             } catch (err) {
                 console.error("Seek fail:", err);
             }
 
-            // Đợi 1 chút để Youtube xử lý seek xong mới cho phép người dùng thao tác
-            // Giúp tránh hiện tượng thanh slider nhảy về 0
             setTimeout(() => {
                 setIsReadyToTrack(true);
             }, 800);
         }
     }, [isPlayerReady, initialData, isReadyToTrack]);
 
-    // 2. LOGIC TRACKING & CHẶN TUA
+    // 2. TRACKING & SYNC (Đã thêm contextData vào dependency để cập nhật classId)
     useEffect(() => {
         const interval = setInterval(() => {
             if (!isReadyToTrack || !playerRef.current || !isPlaying) return;
@@ -90,7 +92,7 @@ const YouTubeSecurePlayer = ({
             setCurrentTime(time);
 
             // Chặn tua
-            if (time > maxWatchedTime + 3) { // Cho phép sai số 3s
+            if (time > maxWatchedTime + 3) { 
                 playerRef.current.seekTo(maxWatchedTime, true);
                 message.warning("Vui lòng không tua video!", 1.5);
             } else {
@@ -108,7 +110,7 @@ const YouTubeSecurePlayer = ({
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [isPlaying, maxWatchedTime, duration, isReadyToTrack]);
+    }, [isPlaying, maxWatchedTime, duration, isReadyToTrack, contextData]); // <--- QUAN TRỌNG: Thêm contextData
 
     const syncProgress = async (currTime, totalTime) => {
         if (!totalTime) return;
@@ -119,8 +121,9 @@ const YouTubeSecurePlayer = ({
         if (onProgress) onProgress(percent, currTime, totalTime);
 
         try {
+             // contextData ở đây sẽ chứa classId nếu LessonPage truyền xuống đúng
              await ProgressApi.upsert({
-                ...contextData, // Bao gồm cả classId nếu có
+                ...contextData, 
                 percentage: percent,
                 lastPosition: Math.floor(currTime),
                 status: status
@@ -136,12 +139,14 @@ const YouTubeSecurePlayer = ({
     const onReady = (event) => {
         playerRef.current = event.target;
         setDuration(event.target.getDuration());
-        setIsPlayerReady(true); // Kích hoạt useEffect số 1
+        event.target.setVolume(volume); // Set volume ban đầu
+        setIsPlayerReady(true); 
     };
 
     const onStateChange = (event) => {
+        // 1 = Playing, 2 = Paused, 0 = Ended
         setIsPlaying(event.data === 1); 
-        if (event.data === 0) { // Ended
+        if (event.data === 0) { 
             setIsPlaying(false);
             syncProgress(duration, duration);
             if(onComplete) onComplete();
@@ -164,6 +169,41 @@ const YouTubeSecurePlayer = ({
         setCurrentTime(value);
     };
 
+    // --- VOLUME HANDLERS ---
+    const handleVolumeChange = (value) => {
+        setVolume(value);
+        if (playerRef.current) {
+            playerRef.current.setVolume(value);
+        }
+        if (value > 0 && isMuted) {
+            setIsMuted(false);
+            if (playerRef.current) playerRef.current.unMute();
+        }
+        if (value === 0) {
+            setIsMuted(true);
+            if (playerRef.current) playerRef.current.mute();
+        }
+    };
+
+    const toggleMute = () => {
+        if (isMuted) {
+            // Unmute -> Restore volume
+            setIsMuted(false);
+            const restoreVol = prevVolume === 0 ? 50 : prevVolume;
+            setVolume(restoreVol);
+            if (playerRef.current) {
+                playerRef.current.unMute();
+                playerRef.current.setVolume(restoreVol);
+            }
+        } else {
+            // Mute
+            setPrevVolume(volume);
+            setVolume(0);
+            setIsMuted(true);
+            if (playerRef.current) playerRef.current.mute();
+        }
+    };
+
     // --- FULLSCREEN LOGIC ---
     const toggleFullscreen = () => {
         if (!document.fullscreenElement) {
@@ -177,7 +217,6 @@ const YouTubeSecurePlayer = ({
         }
     };
 
-    // Listen thoát fullscreen bằng phím ESC
     useEffect(() => {
         const handleFSChange = () => setIsFullscreen(!!document.fullscreenElement);
         document.addEventListener('fullscreenchange', handleFSChange);
@@ -194,29 +233,38 @@ const YouTubeSecurePlayer = ({
     return (
         <div ref={wrapperRef} className="secure-yt-wrapper">
             
-            {/* Loading Overlay: Chỉ ẩn khi ĐÃ seek xong vị trí cũ */}
+            {/* Loading Overlay */}
             {!isReadyToTrack && (
-                <div style={{
-                    position: 'absolute', inset: 0, zIndex: 50, background: '#000', 
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection:'column', gap: 10
-                }}>
+                <div className="yt-loading-overlay">
                     <Spin size="large" />
-                    <span style={{color: '#fff', fontSize: 14}}>Đang đồng bộ tiến độ học...</span>
+                    <span>Đang đồng bộ tiến độ học...</span>
                 </div>
             )}
 
             {/* Video Area */}
-            <div style={{flex: 1, position: 'relative', width: '100%', height: '100%'}}>
+            <div className="yt-video-container">
                 <YouTube
                     videoId={videoId}
                     opts={opts}
                     onReady={onReady}
                     onStateChange={onStateChange}
                     className="youtube-iframe-fix"
-                    style={{width: '100%', height: '100%'}}
                 />
-                {/* Lớp chặn click trực tiếp */}
+                
+                {/* Lớp chặn click trực tiếp vào iframe (luôn có để chặn share/watch later khi hover) */}
                 <div className="yt-click-blocker" onClick={togglePlay} />
+
+                {/* OVERLAY CHE GIAO DIỆN PAUSE CỦA YOUTUBE 
+                   Khi Paused và đã Ready -> Hiển thị overlay này.
+                   Nó che hoàn toàn iframe, người dùng không thấy được các nút Share/Related.
+                */}
+                {isReadyToTrack && !isPlaying && (
+                    <div className="yt-pause-overlay" onClick={togglePlay}>
+                        <div className="yt-big-play-btn">
+                            <PlayCircleFilled />
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Custom Controls Bar */}
@@ -226,24 +274,36 @@ const YouTubeSecurePlayer = ({
                     {isPlaying ? <PauseCircleFilled /> : <PlayCircleFilled />}
                 </div>
 
-                {/* Time Info */}
-                <div className="yt-time-display">
-                    {formatTime(currentTime)}
+                {/* Volume Control (Mới) */}
+                <div className="yt-volume-control">
+                    <div className="yt-control-btn" onClick={toggleMute}>
+                        {isMuted || volume === 0 ? <MutedOutlined /> : <SoundOutlined />}
+                    </div>
+                    <div className="yt-volume-slider">
+                        <Slider 
+                            min={0} max={100} 
+                            value={volume} 
+                            onChange={handleVolumeChange}
+                            tooltip={{ open: false }} 
+                        />
+                    </div>
                 </div>
 
-                {/* Slider */}
-                <Slider 
-                    min={0} 
-                    max={duration || 100} 
-                    value={currentTime} 
-                    onChange={handleSeek}
-                    disabled={!isReadyToTrack}
-                    tooltip={{ formatter: formatTime }}
-                />
-
-                {/* Duration Info */}
+                {/* Time Info */}
                 <div className="yt-time-display">
-                    {formatTime(duration)}
+                    {formatTime(currentTime)} / {formatTime(duration)}
+                </div>
+
+                {/* Seek Slider */}
+                <div className="yt-seek-slider">
+                    <Slider 
+                        min={0} 
+                        max={duration || 100} 
+                        value={currentTime} 
+                        onChange={handleSeek}
+                        disabled={!isReadyToTrack}
+                        tooltip={{ formatter: formatTime }}
+                    />
                 </div>
 
                 {/* Fullscreen Button */}
