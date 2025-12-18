@@ -15,6 +15,10 @@ import RequireAuth from "./pages/auth/RequireAuth.jsx";
 import SearchPage from "./pages/Search.jsx";
 import EssayManagementPage from "./pages/EssayManagementPage.jsx";
 
+// 🟢 Client Pages
+import TopicsPage from "./pages/TopicsPage.jsx";
+import TopicDetailPage from "./pages/TopicDetailPage.jsx";
+
 // ===== ADMIN PAGES =====
 import AdminLayout from "./layouts/AdminLayout.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
@@ -30,29 +34,43 @@ import TeacherManager from "./pages/admin/TeacherManager.jsx";
 import AdminProfile from "./pages/admin/AdminProfile";    
 import AdminSettings from "./pages/admin/AdminSettings";
 
-// ===== TEACHER =====
+// 🟢 Admin Topic Management
+import TopicManager from "./pages/admin/TopicManager.jsx";
+// 🟢 MỚI THÊM: Import trang Quản lý từ vựng riêng biệt
+import VocabularyManager from "./pages/admin/VocabularyManager.jsx";
+
+// ===== TEACHER PAGES & LAYOUT =====
+import TeacherLayout from "./layouts/TeacherLayout.jsx";
 import TeacherDashboard from "./pages/teacher/TeacherDashboard.jsx";
+import TeacherCourseManagement from "./pages/teacher/TeacherCourseManagement.jsx"; 
+import TeacherClassManagement from "./pages/teacher/TeacherClassManagement.jsx"; 
+import TeacherClassDetail from "./pages/teacher/TeacherClassDetail.jsx";
+import TeacherPostManagement from "./pages/teacher/TeacherPostManagement.jsx";
 
 export default function App() {
   const location = useLocation();
   const isAuthPage = location.pathname.startsWith("/login");
   const isAdminDomain = location.pathname.startsWith("/admin");
-  const mainMinHeight = isAuthPage || isAdminDomain ? "100vh" : "calc(100vh - 64px - 160px)";
+  const isTeacherDomain = location.pathname.startsWith("/teacher");
+
+  const isDashBoardLike = isAuthPage || isAdminDomain || isTeacherDomain;
+  const mainMinHeight = isDashBoardLike ? "100vh" : "calc(100vh - 64px - 160px)";
 
   return (
     <div className="app-shell">
-      {!isAuthPage && !isAdminDomain && <Header />}
+      {!isAuthPage && !isAdminDomain && !isTeacherDomain && <Header />}
 
       <main
         style={{
           minHeight: mainMinHeight,
-          backgroundColor: isAuthPage || isAdminDomain ? "#ffffff" : "#f5f5f7",
-          paddingTop: isAuthPage || isAdminDomain ? 0 : 24,
+          backgroundColor: isDashBoardLike ? "#ffffff" : "#f5f5f7",
+          paddingTop: isDashBoardLike ? 0 : 24,
         }}
       >
         <Routes>
           <Route path="/login" element={<Login />} />
 
+          {/* ===== PUBLIC / STUDENT ROUTES ===== */}
           <Route element={<RequireAuth />}>
             <Route path="/" element={<Home />} />
             <Route path="/posts" element={<Posts />} />
@@ -60,23 +78,50 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/profile" element={<Profile />} />
             
-            {/* 👇 SỬA ROUTE NÀY: Dùng Params thay vì Query String */}
             <Route path="/class/:classId/lesson/:courseId" element={<LessonPage />} />
-            
             <Route path="/search" element={<SearchPage />} />
+            
+            {/* Route Client: Danh sách & Chi tiết chủ đề */}
+            <Route path="/topics" element={<TopicsPage />} />
+            <Route path="/topics/:slug" element={<TopicDetailPage />} />
+            
             <Route path="/my-essays" element={<EssayManagementPage />} />
           </Route>
 
+          {/* ===== TEACHER ROUTES ===== */}
           <Route element={<RequireAuth allowedRoles={["teacher", "admin"]} />}>
-            <Route path="/teacher" element={<Navigate to="/teacher/dashboard" replace />} />
-            <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
+             <Route path="/teacher/*" element={<TeacherLayout />}>
+                <Route index element={<TeacherDashboard />} />
+                <Route path="dashboard" element={<TeacherDashboard />} />
+                
+                <Route path="classes" element={<TeacherClassManagement />} />
+                <Route path="classes/:classId" element={<TeacherClassDetail />} />
+                
+                <Route path="courses" element={<TeacherCourseManagement />} />
+                <Route path="courses/:courseId/manage" element={<CourseManager />} />
+                
+                <Route path="question-banks" element={<QuizManager />} />
+                <Route path="questions" element={<QuestionManager />} />
+                
+                <Route path="posts" element={<TeacherPostManagement />} />
+                
+                <Route path="profile" element={<AdminProfile />} /> 
+                <Route path="settings" element={<AdminSettings />} />
+             </Route>
           </Route>
 
+          {/* ===== ADMIN ROUTES ===== */}
           <Route element={<RequireAuth allowedRoles={["admin"]} />}>
             <Route path="/admin/*" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
               <Route path="courses" element={<CourseManagement />} />
               <Route path="courses/:courseId/manage" element={<CourseManager />} />
+              
+              {/* 🟢 QUẢN LÝ CHỦ ĐỀ & TỪ VỰNG */}
+              <Route path="topics" element={<TopicManager />} />
+              {/* Route con để quản lý từ vựng của 1 chủ đề cụ thể */}
+              <Route path="topics/:topicId/vocab" element={<VocabularyManager />} />
+
               <Route path="question-banks" element={<QuizManager />} />
               <Route path="questions" element={<QuestionManager />} />
               <Route path="classes" element={<ClassManagement />} />
@@ -93,7 +138,7 @@ export default function App() {
         </Routes>
       </main>
 
-      {!isAuthPage && !isAdminDomain && <Footer />}
+      {!isAuthPage && !isAdminDomain && !isTeacherDomain && <Footer />}
     </div>
   );
 }

@@ -1,0 +1,97 @@
+/* src/css/topics.css */
+
+.topics-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.topics-header {
+  font-size: 24px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 30px;
+}
+
+/* Grid Layout: 4 cột trên desktop */
+.topics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+
+/* Card Style */
+.topic-card {
+  background-color: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 40px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  text-decoration: none; /* Vì dùng Link */
+  color: inherit;
+}
+
+.topic-card:hover {
+  border-color: #2F80ED;
+  box-shadow: 0 4px 12px rgba(47, 128, 237, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Icon Box Style */
+.topic-icon-box {
+  width: 64px;
+  height: 64px;
+  background-color: #f8f9fa; /* Màu nền xám nhạt sau icon */
+  border: 1px solid #eee;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  color: #4A85F6; /* Màu xanh của icon */
+}
+
+.topic-icon-svg {
+  width: 32px;
+  height: 32px;
+}
+
+/* Text Styles */
+.topic-label {
+  font-size: 13px;
+  color: #828282;
+  margin-bottom: 8px;
+  text-transform: capitalize;
+}
+
+.topic-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #333;
+  margin: 0 0 20px 0;
+}
+
+.topic-count {
+  font-size: 14px;
+  color: #666;
+}
+
+/* Responsive: Chuyển sang 2 cột hoặc 1 cột trên mobile */
+@media (max-width: 992px) {
+  .topics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 576px) {
+  .topics-grid {
+    grid-template-columns: 1fr;
+  }
+}

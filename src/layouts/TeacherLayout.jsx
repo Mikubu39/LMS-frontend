@@ -1,12 +1,11 @@
-// src/layouts/AdminLayout.jsx
+// src/layouts/TeacherLayout.jsx
 import { useState, useEffect, useRef } from "react";
 import { Layout, Menu, Avatar, Dropdown, Badge } from "antd"; 
 import {
   MenuFoldOutlined, MenuUnfoldOutlined, DashboardOutlined, ApartmentOutlined,
   BookOutlined, DatabaseOutlined, OrderedListOutlined, FileTextOutlined,
-  TeamOutlined, SearchOutlined, BellOutlined, UserOutlined, SettingOutlined,
-  LogoutOutlined, MessageOutlined,
-  TagsOutlined // 🟢 1. Thêm icon này
+  SearchOutlined, BellOutlined, UserOutlined, SettingOutlined,
+  LogoutOutlined, MessageOutlined 
 } from "@ant-design/icons";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux"; 
@@ -16,16 +15,15 @@ import ChatWidget from "@/components/ChatWidget";
 import { ChatApi } from "@/services/api/chatApi"; 
 import { ProfileApi } from "@/services/api/profileApi";
 import { logout, selectUser, setUser } from "@/redux/authSlice"; 
-import "../css/admin-layout.css";
+import "../css/admin-layout.css"; // Có thể tái sử dụng CSS của admin hoặc tạo file riêng teacher-layout.css
 
 const { Header, Sider, Content } = Layout;
 
-export default function AdminLayout() {
+export default function TeacherLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0); 
   
-  // 🟢 Tạo Ref để theo dõi trạng thái chatOpen
   const chatOpenRef = useRef(chatOpen);
 
   const navigate = useNavigate();
@@ -53,7 +51,7 @@ export default function AdminLayout() {
     fetchLatestUser();
 
     if (currentUser && currentUser.user_id) {
-        // Lấy số tin nhắn chưa đọc ban đầu từ server
+        // Lấy số tin nhắn chưa đọc ban đầu
         ChatApi.getUnreadCount()
           .then((res) => setUnreadCount(res.count))
           .catch((err) => console.error(err));
@@ -64,7 +62,6 @@ export default function AdminLayout() {
 
         socket.on('receiveMessage', (newMsg) => {
             if (newMsg.sender.user_id !== currentUser.user_id) {
-                // Chỉ tăng số thông báo nếu Chat ĐANG ĐÓNG
                 if (!chatOpenRef.current) {
                     setUnreadCount(prev => prev + 1);
                 }
@@ -75,32 +72,29 @@ export default function AdminLayout() {
     }
   }, [currentUser?.user_id]); 
 
-  // 🟢 2. Cập nhật Menu Items: Thêm "Quản lý chủ đề"
+  // 🟢 MENU CỦA TEACHER (Đã bỏ Quản lý người dùng, đổi path sang /teacher)
   const menuItems = [
-    { key: "/admin", icon: <DashboardOutlined />, label: "Dashboard" },
-    { key: "/admin/classes", icon: <ApartmentOutlined />, label: "Quản lý lớp học" },
-    { key: "/admin/courses", icon: <BookOutlined />, label: "Quản lý khóa học" },
-    
-    // 👇 MỤC MỚI ĐÃ THÊM
-    { key: "/admin/topics", icon: <TagsOutlined />, label: "Quản lý chủ đề" },
-
-    { key: "question-banks-group", icon: <DatabaseOutlined />, label: "Quản lý bộ đề", children: [
-        { key: "/admin/question-banks", icon: <DatabaseOutlined />, label: "Quản lý quiz" },
-        { key: "/admin/questions", icon: <OrderedListOutlined />, label: "Quản lý câu hỏi" },
+    { key: "/teacher", icon: <DashboardOutlined />, label: "Dashboard" },
+    { key: "/teacher/classes", icon: <ApartmentOutlined />, label: "Lớp học của tôi" },
+    { key: "/teacher/courses", icon: <BookOutlined />, label: "Quản lý khóa học" },
+    { key: "question-banks-group", icon: <DatabaseOutlined />, label: "Ngân hàng đề", children: [
+        { key: "/teacher/question-banks", icon: <DatabaseOutlined />, label: "Quản lý quiz" },
+        { key: "/teacher/questions", icon: <OrderedListOutlined />, label: "Quản lý câu hỏi" },
     ]},
-    { key: "/admin/posts", icon: <FileTextOutlined />, label: "Quản lý bài viết" },
-    { key: "user-management-group", icon: <TeamOutlined />, label: "Quản lý người dùng", children: [
-        { key: "/admin/students", label: "Học viên" },
-        { key: "/admin/teachers", label: "Giảng viên" },
-    ]},
+    { key: "/teacher/posts", icon: <FileTextOutlined />, label: "Bài viết" },
+    // ĐÃ XÓA MỤC QUẢN LÝ NGƯỜI DÙNG
   ];
 
   const handleUserMenuClick = ({ key }) => {
     if(key === "logout") { dispatch(logout()); navigate("/login"); }
-    else if(key === "profile") navigate("/admin/profile");
-    else if(key === "settings") navigate("/admin/settings");
+    else if(key === "profile") navigate("/teacher/profile"); // Đổi path
+    else if(key === "settings") navigate("/teacher/settings"); // Đổi path
   };
-  const handleMenuClick = (info) => { if (info.key.startsWith("/admin")) navigate(info.key); };
+
+  const handleMenuClick = (info) => { 
+      // Kiểm tra path teacher
+      if (info.key.startsWith("/teacher")) navigate(info.key); 
+  };
 
   const handleOpenChat = () => {
       setChatOpen(true);
@@ -121,16 +115,25 @@ export default function AdminLayout() {
   };
   
   const flatKeys = menuItems.flatMap((item) => item.children ? item.children.map((c) => c.key) : item.key);
-  const matchedKey = flatKeys.filter((k) => typeof k === "string" && location.pathname.startsWith(k)).sort((a, b) => b.length - a.length)[0] || "/admin";
+  // Default về /teacher nếu không match
+  const matchedKey = flatKeys.filter((k) => typeof k === "string" && location.pathname.startsWith(k)).sort((a, b) => b.length - a.length)[0] || "/teacher";
 
   return (
-    <Layout className="admin-layout">
+    <Layout className="admin-layout"> 
+      {/* Vẫn dùng class admin-layout để tận dụng CSS cũ, hoặc bạn đổi tên class trong CSS file */}
       <Sider width={230} collapsible collapsed={collapsed} trigger={null} className="admin-sider">
         <div className="admin-logo">
-          <div className="admin-logo-icon">L</div>
-          {!collapsed && <span className="admin-logo-text">LMS Admin</span>}
+          <div className="admin-logo-icon">T</div> {/* Chữ T cho Teacher */}
+          {!collapsed && <span className="admin-logo-text">LMS Teacher</span>}
         </div>
-        <Menu mode="inline" selectedKeys={[matchedKey]} defaultOpenKeys={["question-banks-group"]} items={menuItems} onClick={handleMenuClick} className="admin-menu" />
+        <Menu 
+            mode="inline" 
+            selectedKeys={[matchedKey]} 
+            defaultOpenKeys={["question-banks-group"]} 
+            items={menuItems} 
+            onClick={handleMenuClick} 
+            className="admin-menu" 
+        />
       </Sider>
 
       <Layout className="admin-main">
@@ -150,7 +153,7 @@ export default function AdminLayout() {
             <Dropdown menu={userMenu} placement="bottomRight" arrow>
               <div className="admin-user" style={{ cursor: "pointer" }}>
                 <Avatar size="small" icon={<UserOutlined />} src={currentUser?.avatar} />
-                <span className="admin-user-name">{currentUser?.full_name || currentUser?.name || "Admin"}</span>
+                <span className="admin-user-name">{currentUser?.full_name || currentUser?.name || "Teacher"}</span>
               </div>
             </Dropdown>
           </div>
