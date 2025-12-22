@@ -1,203 +1,267 @@
-/* Toàn bộ phần header nền trắng, full width */
-.mk-header-wrapper {
-  background: #ffffff;
-  border-bottom: 1px solid #eeeeee;
+/* --- Variables --- */
+:root {
+  --primary-color: #dd673c;
+  --primary-hover: #c55a32;
+  --text-main: #1f2937;
+  --text-secondary: #6b7280;
+  --bg-hover: #f3f4f6;
+  --header-height: 68px;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
-/* Thanh header ở giữa, cao giống mẫu */
+/* --- Header Wrapper: Sticky + Blur --- */
+.mk-header-wrapper {
+  background: rgba(255, 255, 255, 0.9); /* Nền trắng đục */
+  backdrop-filter: blur(12px);          /* Hiệu ứng kính mờ */
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(229, 231, 235, 0.5);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  transition: all 0.3s ease;
+}
+
+/* --- Main Header Container --- */
 .mk-header {
-  max-width: 1200px;
+  max-width: 1280px; /* Mở rộng một chút cho thoáng */
   margin: 0 auto;
-  height: 64px;
+  height: var(--header-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
 }
 
-/* Bên trái: logo + vạch + menu */
+/* --- Left Side --- */
 .mk-header-left {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
 }
 
 .mk-header-logo img {
-  height: 32px;
+  height: 36px; /* Logo lớn hơn chút */
   display: block;
   object-fit: contain;
+  transition: transform 0.2s;
 }
 
-/* Vạch xám mỏng sau logo */
+.mk-header-logo:hover img {
+  transform: scale(1.05);
+}
+
 .mk-header-sep {
   width: 1px;
-  height: 28px;
+  height: 24px;
   background: #e5e7eb;
 }
 
-/* Menu */
+/* --- Navigation --- */
 .mk-header-nav {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 8px; /* Giảm gap, dùng padding cho từng item */
 }
 
-.mk-header-link,
-.mk-header-link-button {
+.mk-header-link {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 14px;
-  color: #4b4b4b;
+  font-weight: 500;
+  color: var(--text-secondary);
   text-decoration: none;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 4px 6px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  position: relative;
 }
 
+/* Icon trong menu */
 .mk-menu-icon {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
 }
 
-/* Bên phải: icon search + bell + avatar */
+/* Hover State */
+.mk-header-link:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-main);
+}
+.mk-header-link:hover .mk-menu-icon {
+  opacity: 1;
+}
+
+/* Active State (Sẽ được add class bởi React Router) */
+.mk-header-link.active {
+  background-color: #fff1eb; /* Màu cam rất nhạt */
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.mk-header-link.active .mk-menu-icon path {
+  fill: var(--primary-color);
+  stroke: var(--primary-color);
+}
+/* Xử lý riêng cho icon stroke (AI Chat) */
+.mk-header-link.active .mk-menu-icon[fill="none"] path {
+  fill: none;
+}
+
+/* --- Right Side --- */
 .mk-header-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   position: relative;
 }
 
 .mk-icon-button {
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid transparent;
   background: transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.mk-icon-button:hover {
+  background: var(--bg-hover);
+  color: var(--text-main);
 }
 
 .mk-icon {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
+/* Avatar Button */
 .mk-avatar-button {
-  padding: 0;
-  border-radius: 999px;
-  border: none;
+  padding: 2px;
+  border-radius: 50%;
+  border: 2px solid transparent;
   background: transparent;
   cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mk-avatar-button:hover, 
+.mk-avatar-button.open {
+  border-color: var(--primary-color);
 }
 
 .mk-avatar-img {
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
   object-fit: cover;
+  display: block;
 }
 
-/* Dropdown user menu */
+/* --- Dropdown Menu (Animation) --- */
 .mk-user-menu {
   position: absolute;
-  top: 56px;        /* ngay sát cạnh dưới header */
+  top: 60px;
   right: 0;
-  width: 260px;
+  width: 280px;
   background: #ffffff;
-  border-radius: 10px;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+  border-radius: 12px;
+  border: 1px solid #f3f4f6;
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
-  z-index: 20;
+  z-index: 1001;
+  transform-origin: top right;
+  animation: menuFadeIn 0.2s ease-out forwards;
+}
+
+@keyframes menuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .mk-user-menu-header {
   display: flex;
   align-items: center;
-  padding: 12px 16px;
+  padding: 16px;
   border-bottom: 1px solid #f3f3f3;
   gap: 12px;
-}
-
-.mk-user-menu-avatar {
-  position: relative;
-}
-
-.mk-user-menu-avatar .mk-avatar-img {
-  width: 36px;
-  height: 36px;
-}
-
-.mk-user-status-dot {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #22c55e;
-  border: 2px solid #ffffff;
-}
-
-.mk-user-menu-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  background: #fafafa;
 }
 
 .mk-user-name {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
-  color: #111827;
+  color: var(--text-main);
 }
 
 .mk-user-email {
-  font-size: 12px;
-  color: #6b7280;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .mk-user-menu-item {
   width: 100%;
-  padding: 10px 16px;
+  padding: 12px 16px;
   border: none;
   background: #ffffff;
   text-align: left;
   font-size: 14px;
-  color: #111827;
+  font-weight: 500;
+  color: var(--text-main);
   cursor: pointer;
+  transition: background 0.1s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .mk-user-menu-item:hover {
   background: #f9fafb;
+  color: var(--primary-color);
 }
 
 .mk-user-menu-logout {
-  display: flex;
-  align-items: center;
-  gap: 6px;
   border-top: 1px solid #f3f3f3;
+  color: #ef4444; /* Red color */
+}
+
+.mk-user-menu-logout:hover {
+  background: #fef2f2;
   color: #dc2626;
 }
 
-.mk-user-menu-logout-icon {
-  font-size: 14px;
-}
+/* Login Button */
 .mk-login-button {
-  padding: 8px 20px;
-  border-radius: 999px;
-  border: 1px solid #dd673c;
-  background: #dd673c;
+  padding: 10px 24px;
+  border-radius: 99px;
+  background: var(--primary-color);
   color: #fff;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   text-decoration: none;
-  margin-left: 16px;
+  margin-left: 8px;
+  box-shadow: 0 4px 6px -1px rgba(221, 103, 60, 0.3);
+  transition: all 0.2s;
 }
 
 .mk-login-button:hover {
-  opacity: 0.9;
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 8px -1px rgba(221, 103, 60, 0.4);
 }

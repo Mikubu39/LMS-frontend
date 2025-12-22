@@ -19,6 +19,9 @@ import EssayManagementPage from "./pages/EssayManagementPage.jsx";
 import TopicsPage from "./pages/TopicsPage.jsx";
 import TopicDetailPage from "./pages/TopicDetailPage.jsx";
 
+// 🟢 MỚI THÊM: Import trang chat AI
+import JapaneseVoiceChat from "./components/JapaneseVoiceChat.jsx";
+
 // ===== ADMIN PAGES =====
 import AdminLayout from "./layouts/AdminLayout.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
@@ -36,7 +39,6 @@ import AdminSettings from "./pages/admin/AdminSettings";
 
 // 🟢 Admin Topic Management
 import TopicManager from "./pages/admin/TopicManager.jsx";
-// 🟢 MỚI THÊM: Import trang Quản lý từ vựng riêng biệt
 import VocabularyManager from "./pages/admin/VocabularyManager.jsx";
 
 // ===== TEACHER PAGES & LAYOUT =====
@@ -54,6 +56,7 @@ export default function App() {
   const isTeacherDomain = location.pathname.startsWith("/teacher");
 
   const isDashBoardLike = isAuthPage || isAdminDomain || isTeacherDomain;
+  // Nếu là trang chat AI thì chỉnh chiều cao cho phù hợp (tuỳ chọn, nhưng để mặc định cũng ổn)
   const mainMinHeight = isDashBoardLike ? "100vh" : "calc(100vh - 64px - 160px)";
 
   return (
@@ -84,6 +87,9 @@ export default function App() {
             {/* Route Client: Danh sách & Chi tiết chủ đề */}
             <Route path="/topics" element={<TopicsPage />} />
             <Route path="/topics/:slug" element={<TopicDetailPage />} />
+            
+            {/* 🟢 MỚI THÊM: Route cho trang chat AI */}
+            <Route path="/ai-chat" element={<JapaneseVoiceChat />} />
             
             <Route path="/my-essays" element={<EssayManagementPage />} />
           </Route>
@@ -117,9 +123,7 @@ export default function App() {
               <Route path="courses" element={<CourseManagement />} />
               <Route path="courses/:courseId/manage" element={<CourseManager />} />
               
-              {/* 🟢 QUẢN LÝ CHỦ ĐỀ & TỪ VỰNG */}
               <Route path="topics" element={<TopicManager />} />
-              {/* Route con để quản lý từ vựng của 1 chủ đề cụ thể */}
               <Route path="topics/:topicId/vocab" element={<VocabularyManager />} />
 
               <Route path="question-banks" element={<QuizManager />} />
