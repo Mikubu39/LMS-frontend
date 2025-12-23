@@ -19,7 +19,7 @@ import EssayManagementPage from "./pages/EssayManagementPage.jsx";
 import TopicsPage from "./pages/TopicsPage.jsx";
 import TopicDetailPage from "./pages/TopicDetailPage.jsx";
 
-// 🟢 MỚI THÊM: Import trang chat AI
+// 🟢 Import trang chat AI
 import JapaneseVoiceChat from "./components/JapaneseVoiceChat.jsx";
 
 // ===== ADMIN PAGES =====
@@ -41,6 +41,9 @@ import AdminSettings from "./pages/admin/AdminSettings";
 import TopicManager from "./pages/admin/TopicManager.jsx";
 import VocabularyManager from "./pages/admin/VocabularyManager.jsx";
 
+// 🟢 (MỚI) Admin Kanji Management
+import KanjiManager from "./pages/admin/KanjiManager.jsx"; 
+
 // ===== TEACHER PAGES & LAYOUT =====
 import TeacherLayout from "./layouts/TeacherLayout.jsx";
 import TeacherDashboard from "./pages/teacher/TeacherDashboard.jsx";
@@ -56,7 +59,7 @@ export default function App() {
   const isTeacherDomain = location.pathname.startsWith("/teacher");
 
   const isDashBoardLike = isAuthPage || isAdminDomain || isTeacherDomain;
-  // Nếu là trang chat AI thì chỉnh chiều cao cho phù hợp (tuỳ chọn, nhưng để mặc định cũng ổn)
+  // Nếu là trang chat AI thì chỉnh chiều cao cho phù hợp
   const mainMinHeight = isDashBoardLike ? "100vh" : "calc(100vh - 64px - 160px)";
 
   return (
@@ -67,7 +70,7 @@ export default function App() {
         style={{
           minHeight: mainMinHeight,
           backgroundColor: isDashBoardLike ? "#ffffff" : "#f5f5f7",
-          paddingTop: isDashBoardLike ? 0 : 24,
+          padding: isDashBoardLike ? 0 : 24,
         }}
       >
         <Routes>
@@ -88,7 +91,7 @@ export default function App() {
             <Route path="/topics" element={<TopicsPage />} />
             <Route path="/topics/:slug" element={<TopicDetailPage />} />
             
-            {/* 🟢 MỚI THÊM: Route cho trang chat AI */}
+            {/* Route cho trang chat AI */}
             <Route path="/ai-chat" element={<JapaneseVoiceChat />} />
             
             <Route path="/my-essays" element={<EssayManagementPage />} />
@@ -123,8 +126,12 @@ export default function App() {
               <Route path="courses" element={<CourseManagement />} />
               <Route path="courses/:courseId/manage" element={<CourseManager />} />
               
+              {/* Quản lý Topics & Vocabulary */}
               <Route path="topics" element={<TopicManager />} />
               <Route path="topics/:topicId/vocab" element={<VocabularyManager />} />
+
+              {/* 🟢 (MỚI) Quản lý Kanji */}
+              <Route path="kanji" element={<KanjiManager />} />
 
               <Route path="question-banks" element={<QuizManager />} />
               <Route path="questions" element={<QuestionManager />} />

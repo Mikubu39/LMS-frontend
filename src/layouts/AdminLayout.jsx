@@ -1,4 +1,3 @@
-// src/layouts/AdminLayout.jsx
 import { useState, useEffect, useRef } from "react";
 import { Layout, Menu, Avatar, Dropdown, Badge } from "antd"; 
 import {
@@ -6,7 +5,8 @@ import {
   BookOutlined, DatabaseOutlined, OrderedListOutlined, FileTextOutlined,
   TeamOutlined, SearchOutlined, BellOutlined, UserOutlined, SettingOutlined,
   LogoutOutlined, MessageOutlined,
-  TagsOutlined // 🟢 1. Thêm icon này
+  TagsOutlined,
+  ReadOutlined // 🟢 1. Import thêm icon này cho Kanji
 } from "@ant-design/icons";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux"; 
@@ -25,7 +25,6 @@ export default function AdminLayout() {
   const [chatOpen, setChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0); 
   
-  // 🟢 Tạo Ref để theo dõi trạng thái chatOpen
   const chatOpenRef = useRef(chatOpen);
 
   const navigate = useNavigate();
@@ -53,7 +52,6 @@ export default function AdminLayout() {
     fetchLatestUser();
 
     if (currentUser && currentUser.user_id) {
-        // Lấy số tin nhắn chưa đọc ban đầu từ server
         ChatApi.getUnreadCount()
           .then((res) => setUnreadCount(res.count))
           .catch((err) => console.error(err));
@@ -64,7 +62,6 @@ export default function AdminLayout() {
 
         socket.on('receiveMessage', (newMsg) => {
             if (newMsg.sender.user_id !== currentUser.user_id) {
-                // Chỉ tăng số thông báo nếu Chat ĐANG ĐÓNG
                 if (!chatOpenRef.current) {
                     setUnreadCount(prev => prev + 1);
                 }
@@ -75,14 +72,15 @@ export default function AdminLayout() {
     }
   }, [currentUser?.user_id]); 
 
-  // 🟢 2. Cập nhật Menu Items: Thêm "Quản lý chủ đề"
+  // 🟢 2. CẬP NHẬT MENU ITEMS TẠI ĐÂY
   const menuItems = [
     { key: "/admin", icon: <DashboardOutlined />, label: "Dashboard" },
     { key: "/admin/classes", icon: <ApartmentOutlined />, label: "Quản lý lớp học" },
     { key: "/admin/courses", icon: <BookOutlined />, label: "Quản lý khóa học" },
-    
-    // 👇 MỤC MỚI ĐÃ THÊM
     { key: "/admin/topics", icon: <TagsOutlined />, label: "Quản lý chủ đề" },
+    
+    // 👇 MỤC MỚI: QUẢN LÝ KANJI
+    { key: "/admin/kanji", icon: <ReadOutlined />, label: "Quản lý Kanji" },
 
     { key: "question-banks-group", icon: <DatabaseOutlined />, label: "Quản lý bộ đề", children: [
         { key: "/admin/question-banks", icon: <DatabaseOutlined />, label: "Quản lý quiz" },
