@@ -1,45 +1,45 @@
+// src/pages/admin/VocabularyManager.jsx
 import React, { useState, useEffect } from "react";
 import { 
-  Card, Descriptions, Tag, Button, Table, 
-  Breadcrumb, Space, Typography, Form, 
-  Input, Select, message, Divider, Modal 
+  Card, Button, Table, Breadcrumb, Space, 
+  Typography, Form, Input, Select, message, 
+  Modal, Upload, Tooltip 
 } from "antd";
 import { 
-  EditOutlined, SaveOutlined, CloseOutlined, 
-  PlusOutlined, DeleteOutlined, AudioOutlined 
+  EditOutlined, PlusOutlined, DeleteOutlined, 
+  AudioOutlined, UploadOutlined, DownloadOutlined,
+  ExclamationCircleOutlined
 } from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router-dom";
-import dayjs from "dayjs";
+import * as XLSX from "xlsx"; // 🟢 Thư viện xử lý Excel
 
-// 🟢 IMPORT API
+// IMPORT API
 import { VocabularyApi } from "../../services/api/vocabularyApi";
 import { TopicsApi } from "../../services/api/topicsApi";
 import { KanjiApi } from "../../services/api/kanjiApi";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
+const { confirm } = Modal;
 
 export default function VocabularyManager() {
   const navigate = useNavigate();
-  const { topicId } = useParams(); // Lấy topicId từ URL
+  const { topicId } = useParams(); 
   
   // --- STATE ---
   const [loading, setLoading] = useState(false);
-  const [topic, setTopic] = useState(null); // Thông tin Topic cha
-  const [vocabList, setVocabList] = useState([]); // Danh sách từ vựng
+  const [topic, setTopic] = useState(null);
+  const [vocabList, setVocabList] = useState([]);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
 
-  // State sửa thông tin Topic
-  const [isEditingTopic, setIsEditingTopic] = useState(false);
-  const [topicForm] = Form.useForm();
-
-  // State Modal Từ vựng (Thêm/Sửa)
+  // State Modal & Form
   const [isVocabModalOpen, setIsVocabModalOpen] = useState(false);
   const [editingVocab, setEditingVocab] = useState(null);
   const [vocabForm] = Form.useForm();
-  
-  // State Select Kanji (Load list Kanji để chọn)
   const [kanjiOptions, setKanjiOptions] = useState([]); 
+
+  // State chọn nhiều (Bulk Action)
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
 
   // --- INITIAL LOAD ---
   useEffect(() => {
@@ -47,42 +47,32 @@ export default function VocabularyManager() {
       fetchTopicDetail();
       fetchVocabList(1);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topicId]);
 
-  // Load danh sách Kanji khi mở Modal thêm/sửa từ vựng
+  // Load Kanji khi mở modal
   useEffect(() => {
     if (isVocabModalOpen) {
       fetchKanjiOptions();
     }
   }, [isVocabModalOpen]);
 
-  // --- API CALLS ---
-
-  // 1. Lấy thông tin Topic
+  // --- API FUNCTIONS ---
   const fetchTopicDetail = async () => {
     try {
       const res = await TopicsApi.getById(topicId);
       setTopic(res);
-      // Fill form sửa topic sẵn
-      topicForm.setFieldsValue({
-        name: res.name,
-        description: res.description,
-        level: res.level
-      });
     } catch (error) {
       message.error("Không thể tải thông tin chủ đề");
     }
   };
 
-  // 2. Lấy danh sách từ vựng của Topic
   const fetchVocabList = async (page = 1) => {
     setLoading(true);
     try {
       const res = await VocabularyApi.getAll({
         page: page,
         limit: pagination.pageSize,
-        topic_id: topicId // 🟢 Filter theo topicId
+        topic_id: topicId 
       });
       setVocabList(res.data);
       setPagination({
@@ -90,6 +80,7 @@ export default function VocabularyManager() {
         pageSize: pagination.pageSize,
         total: res.total
       });
+      setSelectedRowKeys([]); // Reset selection khi chuyển trang
     } catch (error) {
       message.error("Lỗi tải danh sách từ vựng");
     } finally {
@@ -97,124 +88,178 @@ export default function VocabularyManager() {
     }
   };
 
-  // 3. Lấy danh sách Kanji để chọn trong Select
   const fetchKanjiOptions = async (search = "") => {
     try {
-      const res = await KanjiApi.getAll({ page: 1, limit: 50, search });
+      const res = await KanjiApi.getAll({ page: 1, limit: 20, search });
       setKanjiOptions(res.data);
     } catch (error) {
       console.error("Lỗi tải Kanji options");
     }
   };
 
-  // --- HANDLERS FOR TOPIC ---
+  // --- HANDLERS (Thêm / Sửa / Xóa) ---
 
-  const handleSaveTopicInfo = async (values) => {
+  const handleSaveVocab = async (values) => {
     try {
-      await TopicsApi.update(topicId, values);
-      message.success("Cập nhật thông tin chủ đề thành công!");
-      setIsEditingTopic(false);
-      fetchTopicDetail(); // Refresh data
+      const payload = { ...values, topic_id: topicId };
+      if (editingVocab) {
+        await VocabularyApi.update(editingVocab.id, payload);
+        message.success("Cập nhật thành công!");
+      } else {
+        await VocabularyApi.create(payload);
+        message.success("Thêm mới thành công!");
+      }
+      setIsVocabModalOpen(false);
+      fetchVocabList(pagination.current);
     } catch (error) {
-      message.error("Cập nhật thất bại!");
+      message.error("Có lỗi xảy ra!");
     }
   };
-
-  // --- HANDLERS FOR VOCABULARY ---
 
   const openVocabModal = (record = null) => {
     setEditingVocab(record);
     if (record) {
-      // Map dữ liệu vào form
-      // Lưu ý: kanjiList từ API trả về là mảng object [{id: 1, kanji: 'Nhật'}...]
-      // Cần map về mảng ID [1, 2...] cho Select Antd
       const kanjiIds = record.kanjiList?.map(k => k.id) || [];
-      vocabForm.setFieldsValue({
-        ...record,
-        kanji_ids: kanjiIds
-      });
+      vocabForm.setFieldsValue({ ...record, kanji_ids: kanjiIds });
     } else {
       vocabForm.resetFields();
     }
     setIsVocabModalOpen(true);
   };
 
-  const handleSaveVocab = async (values) => {
-    try {
-      const payload = { 
-          ...values, 
-          topic_id: topicId // Luôn gắn vocab vào topic hiện tại
-      };
-
-      if (editingVocab) {
-        // Update
-        await VocabularyApi.update(editingVocab.id, payload);
-        message.success("Cập nhật từ vựng thành công!");
-      } else {
-        // Create
-        await VocabularyApi.create(payload);
-        message.success("Thêm từ vựng mới thành công!");
-      }
-      setIsVocabModalOpen(false);
-      fetchVocabList(pagination.current);
-    } catch (error) {
-      message.error("Có lỗi xảy ra khi lưu!");
-    }
-  };
-
-  const handleDeleteVocab = (id) => {
-    Modal.confirm({
-      title: 'Xóa từ vựng?',
-      content: 'Bạn có chắc chắn muốn xóa từ vựng này không?',
-      okText: 'Xóa',
+  // 🟢 CHỨC NĂNG XÓA NHIỀU (BULK DELETE)
+  const handleBulkDelete = () => {
+    confirm({
+      title: `Bạn có chắc muốn xóa ${selectedRowKeys.length} từ vựng đã chọn?`,
+      icon: <ExclamationCircleOutlined />,
+      content: 'Hành động này không thể hoàn tác.',
+      okText: 'Xóa ngay',
       okType: 'danger',
+      cancelText: 'Hủy',
       onOk: async () => {
+        setLoading(true);
         try {
-          await VocabularyApi.delete(id);
-          message.success("Đã xóa từ vựng");
+          // Gọi API xóa từng cái một (Promise.all) vì chưa có API bulk delete
+          // Đây là cách xử lý ở Frontend khi Backend chưa hỗ trợ xóa mảng ID
+          await Promise.all(selectedRowKeys.map(id => VocabularyApi.delete(id)));
+          
+          message.success("Đã xóa các từ vựng đã chọn!");
+          setSelectedRowKeys([]); // Reset chọn
           fetchVocabList(pagination.current);
         } catch (error) {
-          message.error("Xóa thất bại!");
+          message.error("Xóa thất bại, vui lòng thử lại!");
+        } finally {
+          setLoading(false);
         }
-      }
+      },
     });
   };
 
-  // --- COLUMNS ---
-  const vocabColumns = [
+  // 🟢 CHỨC NĂNG TẢI FILE MẪU EXCEL
+  const handleDownloadTemplate = () => {
+    // Dữ liệu mẫu
+    const templateData = [
+      { "Từ vựng": "先生", "Cách đọc": "せんせい", "Nghĩa": "Giáo viên" },
+      { "Từ vựng": "学生", "Cách đọc": "がくせい", "Nghĩa": "Học sinh" },
+    ];
+
+    // Tạo workbook
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "TuVungMau");
+
+    // Tải xuống
+    XLSX.writeFile(wb, "Mau_Nhap_Tu_Vung.xlsx");
+  };
+
+  // 🟢 CHỨC NĂNG IMPORT EXCEL
+  const handleImportExcel = (file) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        
+        // Lấy sheet đầu tiên
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        
+        // Chuyển đổi sang JSON
+        const jsonData = XLSX.utils.sheet_to_json(sheet);
+
+        // Map dữ liệu từ tiếng Việt sang tiếng Anh cho Backend
+        const formattedData = jsonData.map(item => ({
+            word: item["Từ vựng"] || item["word"],
+            reading: item["Cách đọc"] || item["reading"],
+            meaning: item["Nghĩa"] || item["meaning"],
+            topicId: topicId,
+            kanjiIds: [] // Mặc định rỗng, backend sẽ tự động detect
+        }));
+
+        // Lọc bỏ những dòng trống
+        const validData = formattedData.filter(i => i.word && i.meaning);
+
+        if (validData.length === 0) {
+            message.warning("File không có dữ liệu hợp lệ!");
+            return;
+        }
+
+        setLoading(true);
+        await VocabularyApi.importBulk(topicId, validData);
+        message.success(`Đã thêm thành công ${validData.length} từ vựng!`);
+        fetchVocabList(1);
+
+      } catch (error) {
+        console.error(error);
+        message.error("Lỗi đọc file Excel! Hãy dùng file mẫu.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    return false; // Chặn Antd upload
+  };
+
+  // Cấu hình bảng
+  const rowSelection = {
+    selectedRowKeys,
+    onChange: (newSelectedRowKeys) => setSelectedRowKeys(newSelectedRowKeys),
+  };
+
+  const columns = [
     {
-      title: "Từ vựng (Word)",
+      title: "Từ vựng",
       dataIndex: "word",
-      key: "word",
+      width: 150,
       render: (text) => <Text strong style={{ color: '#1677ff', fontSize: 16 }}>{text}</Text>
     },
     {
-      title: "Nghĩa (Meaning)",
-      dataIndex: "meaning",
-      key: "meaning",
+      title: "Cách đọc",
+      dataIndex: "reading",
+      width: 150,
     },
     {
-        title: "Kanji liên quan",
-        dataIndex: "kanjiList",
-        key: "kanjiList",
-        render: (kanjiList) => (
-            <>
-                {kanjiList && kanjiList.map(k => (
-                    <Tag key={k.id} color="purple">{k.kanji}</Tag>
-                ))}
-            </>
-        )
+      title: "Nghĩa",
+      dataIndex: "meaning",
     },
     {
       title: "Hành động",
-      key: "action",
-      width: 120,
+      width: 100,
       align: 'right',
       render: (_, record) => (
-        <Space>
-           <Button type="text" icon={<EditOutlined style={{ color: '#faad14' }} />} onClick={() => openVocabModal(record)} />
-           <Button type="text" danger icon={<DeleteOutlined />} onClick={() => handleDeleteVocab(record.id)} />
-        </Space>
+         <Space>
+            <Button size="small" icon={<EditOutlined />} onClick={() => openVocabModal(record)} />
+            <Button size="small" danger icon={<DeleteOutlined />} onClick={() => {
+                confirm({
+                    title: 'Xóa từ này?',
+                    okType: 'danger',
+                    onOk: async () => {
+                        await VocabularyApi.delete(record.id);
+                        fetchVocabList(pagination.current);
+                    }
+                })
+            }} />
+         </Space>
       )
     }
   ];
@@ -231,120 +276,92 @@ export default function VocabularyManager() {
         style={{ marginBottom: 16 }}
       />
 
-      {/* --- HEADER: THÔNG TIN TOPIC --- */}
+      {/* HEADER & CÁC NÚT CHỨC NĂNG */}
       <Card bordered={false} style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <Space direction="vertical" size={0}>
-            <Title level={3} style={{ margin: 0 }}>
-              {isEditingTopic ? "Chỉnh sửa thông tin chủ đề" : topic.name}
-            </Title>
-            <Text type="secondary">ID: {topicId}</Text>
-          </Space>
-          
-          <Space>
-            {isEditingTopic ? (
-              <>
-                <Button icon={<CloseOutlined />} onClick={() => setIsEditingTopic(false)}>Hủy</Button>
-                <Button type="primary" icon={<SaveOutlined />} onClick={() => topicForm.submit()}>Lưu</Button>
-              </>
-            ) : (
-              <Button icon={<EditOutlined />} onClick={() => setIsEditingTopic(true)}>Sửa thông tin</Button>
-            )}
-          </Space>
-        </div>
-
-        <Divider />
-
-        {isEditingTopic ? (
-          <Form form={topicForm} layout="vertical" onFinish={handleSaveTopicInfo}>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
-              <Form.Item label="Tên chủ đề" name="name" rules={[{ required: true }]}>
-                <Input />
-              </Form.Item>
-              <Form.Item label="Trình độ" name="level" rules={[{ required: true }]}>
-                <Select>
-                  <Option value="N5">N5</Option>
-                  <Option value="N4">N4</Option>
-                  <Option value="N3">N3</Option>
-                  <Option value="N2">N2</Option>
-                  <Option value="N1">N1</Option>
-                </Select>
-              </Form.Item>
+         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+            <div>
+                <Title level={3} style={{ margin: 0 }}>{topic.name}</Title>
+                <Text type="secondary">{topic.description}</Text>
             </div>
-            <Form.Item label="Mô tả" name="description">
-              <Input.TextArea rows={2} />
-            </Form.Item>
-          </Form>
-        ) : (
-          <Descriptions column={2}>
-            <Descriptions.Item label="Trình độ"><Tag color="green">{topic.level}</Tag></Descriptions.Item>
-            <Descriptions.Item label="Ngày tạo">{dayjs(topic.createdAt).format("DD/MM/YYYY")}</Descriptions.Item>
-            <Descriptions.Item label="Mô tả">{topic.description}</Descriptions.Item>
-          </Descriptions>
-        )}
+
+            <Space wrap>
+                {/* Nút tải mẫu */}
+                <Button icon={<DownloadOutlined />} onClick={handleDownloadTemplate}>
+                    Tải file mẫu Excel
+                </Button>
+
+                {/* Nút Import Excel */}
+                <Upload 
+                    accept=".xlsx, .xls" 
+                    showUploadList={false} 
+                    beforeUpload={handleImportExcel}
+                >
+                    <Button icon={<UploadOutlined />}>Nhập từ Excel</Button>
+                </Upload>
+
+                {/* Nút Thêm thủ công */}
+                <Button type="primary" icon={<PlusOutlined />} onClick={() => openVocabModal()}>
+                    Thêm từ vựng
+                </Button>
+            </Space>
+         </div>
+
+         {/* Nút Bulk Action (Chỉ hiện khi có chọn dòng) */}
+         {selectedRowKeys.length > 0 && (
+            <div style={{ marginTop: 16, padding: '8px 16px', background: '#fff1f0', border: '1px solid #ffa39e', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 16 }}>
+                <Text type="danger">Đang chọn {selectedRowKeys.length} từ vựng</Text>
+                <Button type="primary" danger size="small" onClick={handleBulkDelete}>
+                    Xóa tất cả mục đã chọn
+                </Button>
+                <Button size="small" onClick={() => setSelectedRowKeys([])}>Bỏ chọn</Button>
+            </div>
+         )}
       </Card>
 
-      {/* --- BODY: DANH SÁCH TỪ VỰNG --- */}
-      <Card 
-        title={<Space><AudioOutlined /> Danh sách từ vựng ({pagination.total})</Space>}
-        extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => openVocabModal()}>Thêm từ mới</Button>}
-      >
-        <Table 
-          columns={vocabColumns} 
-          dataSource={vocabList} 
-          rowKey="id"
-          loading={loading}
-          pagination={{
-             current: pagination.current,
-             pageSize: pagination.pageSize,
-             total: pagination.total,
-             onChange: (page) => fetchVocabList(page)
-          }}
-        />
-      </Card>
+      {/* BẢNG DỮ LIỆU */}
+      <Table 
+        rowSelection={rowSelection} // 🟢 Kích hoạt checkbox
+        columns={columns} 
+        dataSource={vocabList} 
+        rowKey="id"
+        loading={loading}
+        pagination={{
+            current: pagination.current,
+            pageSize: pagination.pageSize,
+            total: pagination.total,
+            onChange: (page) => fetchVocabList(page)
+        }}
+      />
 
-      {/* --- MODAL THÊM / SỬA TỪ VỰNG --- */}
+      {/* MODAL THÊM/SỬA (Giữ nguyên form nhập) */}
       <Modal
         title={editingVocab ? "Cập nhật Từ vựng" : "Thêm Từ vựng mới"}
         open={isVocabModalOpen}
         onCancel={() => setIsVocabModalOpen(false)}
         onOk={() => vocabForm.submit()}
-        width={600}
       >
         <Form form={vocabForm} layout="vertical" onFinish={handleSaveVocab}>
-            <Form.Item 
-                label="Từ vựng (Word)" 
-                name="word" 
-                rules={[{ required: true, message: "Vui lòng nhập từ vựng" }]}
-            >
-                <Input placeholder="Ví dụ: 日本" size="large" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <Form.Item label="Từ vựng" name="word" rules={[{ required: true }]}>
+                    <Input placeholder="Ví dụ: 先生" />
+                </Form.Item>
+                <Form.Item label="Cách đọc" name="reading" rules={[{ required: true }]}>
+                    <Input placeholder="Ví dụ: せんせい" />
+                </Form.Item>
+            </div>
+            <Form.Item label="Nghĩa" name="meaning" rules={[{ required: true }]}>
+                <Input placeholder="Ví dụ: Giáo viên" />
             </Form.Item>
-
-            <Form.Item 
-                label="Nghĩa (Meaning)" 
-                name="meaning" 
-                rules={[{ required: true, message: "Vui lòng nhập nghĩa" }]}
-            >
-                <Input placeholder="Ví dụ: Nhật Bản" />
-            </Form.Item>
-
-            <Form.Item 
-                label="Kanji liên quan" 
-                name="kanji_ids"
-                tooltip="Chọn các chữ Kanji cấu thành nên từ này (nếu có)"
-            >
+            <Form.Item label="Kanji liên quan" name="kanji_ids">
                 <Select 
                     mode="multiple" 
                     placeholder="Tìm và chọn Kanji..."
                     filterOption={false}
-                    onSearch={fetchKanjiOptions} // Tìm kiếm server-side khi gõ
+                    onSearch={fetchKanjiOptions}
                     showSearch
-                    style={{ width: '100%' }}
                 >
                     {kanjiOptions.map(k => (
-                        <Option key={k.id} value={k.id}>
-                            {k.kanji} - {k.meanings?.[0]}
-                        </Option>
+                        <Option key={k.id} value={k.id}>{k.kanji} - {k.meanings?.[0]}</Option>
                     ))}
                 </Select>
             </Form.Item>

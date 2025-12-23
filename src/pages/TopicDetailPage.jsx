@@ -1,7 +1,12 @@
 // src/pages/TopicDetailPage.jsx
-import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import React, { useEffect, useState, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Spin, message, Tooltip, Tag } from "antd";
+import { LeftOutlined } from "@ant-design/icons";
 import "../css/topic-detail.css";
+
+import { VocabularyApi } from "../services/api/vocabularyApi";
+import { TopicsApi } from "../services/api/topicsApi";
 
 /* --- ICONS SVG --- */
 const MicIcon = ({ color }) => (
@@ -14,168 +19,251 @@ const MicIcon = ({ color }) => (
 
 const SpeakerIcon = ({ color }) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-    <path d="M15 8.5C15.83 9.33 15.83 10.67 15 11.5" stroke={color || "currentColor"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M17.5 6C19.17 7.67 19.17 10.33 17.5 12" stroke={color || "currentColor"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M2 13.86V10.14C2 9.59 2.45 9.14 3 9.14H6.29C6.56 9.14 6.81 9.04 7 8.85L10.3 5.55C10.86 4.99 11.79 5.39 11.79 6.18V17.82C11.79 18.61 10.86 19.01 10.3 18.45L7 15.15C6.81 14.96 6.56 14.86 6.29 14.86H3C2.45 14.86 2 14.41 2 13.86Z" stroke={color || "currentColor"} strokeWidth="1.5"/>
+    <path d="M11 5L6 9H2V15H6L11 19V5Z" stroke={color || "currentColor"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M19.07 4.93C20.98 6.84 20.98 9.95 19.07 11.86" stroke={color || "currentColor"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M15.54 8.46C15.93 8.85 15.93 9.49 15.54 9.88" stroke={color || "currentColor"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
-/* --- MOCK DATA --- */
-const MOCK_DB = {
-  common: {
-    title: "Thông dụng",
-    vocabs: [
-      { id: 1, kanji: "時間", hiragana: "じかん", meaning: "Thời gian" },
-      { id: 2, kanji: "友達", hiragana: "ともだち", meaning: "Bạn bè" },
-      { id: 3, kanji: "学校", hiragana: "がっこう", meaning: "Trường học" },
-      { id: 4, kanji: "水", hiragana: "みず", meaning: "Nước" },
-      { id: 5, kanji: "本", hiragana: "ほん", meaning: "Quyển sách" },
-      { id: 6, kanji: "先生", hiragana: "せんせい", meaning: "Giáo viên" },
-    ]
-  },
-};
-
-/* --- COMPONENT --- */
 export default function TopicDetailPage() {
-  const { slug } = useParams();
-  const [data, setData] = useState(null);
-  
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  // Data State
+  const [topic, setTopic] = useState(null);
+  const [vocabList, setVocabList] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Learning State
   const [selectedVocab, setSelectedVocab] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Recording State
   const [isRecording, setIsRecording] = useState(false);
-  const [score, setScore] = useState(null);
+  const [feedback, setFeedback] = useState(null); // Kết quả chấm điểm: { type: 'success' | 'error', text: '...' }
+  
+  // Ref để lưu trữ đối tượng Recognition (tránh tạo lại nhiều lần)
+  const recognitionRef = useRef(null);
 
+  // --- 1. INITIAL LOAD ---
   useEffect(() => {
-    if (MOCK_DB[slug]) {
-      setData(MOCK_DB[slug]);
-    } else {
-      setData(MOCK_DB['common']);
-    }
-  }, [slug]);
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [topicRes, vocabRes] = await Promise.all([
+            TopicsApi.getById(id),
+            VocabularyApi.getAll({ topic_id: id, limit: 100 })
+        ]);
+        setTopic(topicRes);
+        setVocabList(vocabRes.data);
+      } catch (error) {
+        message.error("Không tìm thấy chủ đề hoặc lỗi kết nối");
+        navigate("/topics");
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (id) fetchData();
+  }, [id, navigate]);
 
-  const handleOpenModal = (vocab) => {
-    setSelectedVocab(vocab);
-    setScore(null);
-    setIsRecording(false);
-  };
+  // --- 2. HÀM XỬ LÝ ÂM THANH (QUAN TRỌNG) ---
 
-  const handleCloseModal = (e) => {
-    if (e.target.classList.contains("modal-overlay")) {
-      setSelectedVocab(null);
-    }
-  };
-
+  // A. Text-to-Speech (Đọc từ vựng)
   const handleSpeak = (text) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'ja-JP';
-      utterance.rate = 0.8;
-      window.speechSynthesis.speak(utterance);
+    if (!window.speechSynthesis) {
+        message.error("Trình duyệt không hỗ trợ phát âm!");
+        return;
+    }
+    // Dừng âm thanh đang đọc dở
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "ja-JP"; // Giọng Nhật
+    utterance.rate = 0.8;     // Tốc độ chậm vừa phải
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // B. Speech-to-Text (Thu âm & Kiểm tra phát âm)
+  const handleRecord = () => {
+    // Kiểm tra trình duyệt có hỗ trợ không
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      message.error("Trình duyệt này không hỗ trợ thu âm (Dùng Chrome/Edge nhé!)");
+      return;
+    }
+
+    if (isRecording) {
+      // Nếu đang ghi âm thì bấm lần nữa để dừng
+      recognitionRef.current?.stop();
+      setIsRecording(false);
+      return;
+    }
+
+    // Bắt đầu ghi âm
+    setFeedback(null); // Reset kết quả cũ
+    setIsRecording(true);
+
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+    
+    recognition.lang = "ja-JP"; // Ngôn ngữ lắng nghe: Tiếng Nhật
+    recognition.continuous = false; // Ngắt ngay khi nói xong câu
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      // Bắt đầu thu...
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript; // Lấy văn bản máy nghe được
+      console.log("User said:", transcript);
+      
+      // LOGIC CHẤM ĐIỂM
+      checkPronunciation(transcript);
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Lỗi thu âm:", event.error);
+      setIsRecording(false);
+      setFeedback({ type: 'error', text: "Không nghe rõ, hãy thử lại!" });
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+
+    recognition.start();
+  };
+
+  // C. Hàm so sánh kết quả
+  const checkPronunciation = (userSpoke) => {
+    if (!selectedVocab) return;
+
+    // Chuẩn hóa chuỗi (bỏ dấu cách thừa, đưa về chữ thường)
+    const targetWord = selectedVocab.word.trim(); // Ví dụ: 日本
+    const targetReading = selectedVocab.reading.trim(); // Ví dụ: にほん
+    const userSpokeClean = userSpoke.trim();
+
+    // So sánh: Nếu người dùng nói đúng Kanji HOẶC nói đúng Hiragana
+    // (Vì Google Speech đôi khi trả về Kanji, đôi khi trả về Hiragana)
+    if (userSpokeClean === targetWord || userSpokeClean === targetReading) {
+      setFeedback({ 
+        type: 'success', 
+        text: `Tuyệt vời! Bạn nói: "${userSpokeClean}" (Chính xác)` 
+      });
+      // Phát tiếng 'ding' chúc mừng (tuỳ chọn)
     } else {
-      alert("Trình duyệt không hỗ trợ.");
+      setFeedback({ 
+        type: 'error', 
+        text: `Sai rồi. Bạn nói: "${userSpokeClean}". Hãy thử lại!` 
+      });
     }
   };
 
-  const handleRecord = () => {
-    if (isRecording) return;
-    setIsRecording(true);
-    setScore(null);
 
-    setTimeout(() => {
-      setIsRecording(false);
-      // Random điểm từ 0 - 100 để test đủ các trường hợp
-      const randomScore = Math.floor(Math.random() * 101);
-      setScore(randomScore);
-    }, 2000);
+  // --- 3. UI HANDLERS ---
+  const handleCardClick = (vocab) => {
+    setSelectedVocab(vocab);
+    setFeedback(null); // Reset feedback cũ
+    setIsModalOpen(true);
+    handleSpeak(vocab.word); // Tự động đọc khi mở
   };
 
-  // 🟢 Hàm xử lý phản hồi dựa trên điểm số
-  const getFeedback = (s) => {
-    if (s < 30) return { text: "Tệ", className: "bad" };
-    if (s < 50) return { text: "Tàm tạm", className: "average" };
-    if (s < 80) return { text: "Khá tốt", className: "good" };
-    return { text: "Amazing good chóp em", className: "excellent" };
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedVocab(null);
+    window.speechSynthesis.cancel(); // Tắt tiếng nếu đang đọc
+    if (isRecording) recognitionRef.current?.stop();
   };
 
-  if (!data) return <div style={{padding: 40}}>Loading...</div>;
-
-  // Tính toán feedback nếu đã có điểm
-  const feedback = score !== null ? getFeedback(score) : null;
+  if (loading) return <div className="loading-container"><Spin size="large" tip="Đang tải bài học..." /></div>;
 
   return (
-    <div className="topic-detail-container">
-      <h2 className="topic-detail-title">Chủ đề “{data.title}”</h2>
+    <div className="detail-container">
+      {/* HEADER */}
+      <header className="detail-header">
+        <button className="back-btn" onClick={() => navigate("/topics")}>
+          <LeftOutlined /> Quay lại
+        </button>
+        <div className="header-info">
+            <h1>{topic?.name}</h1>
+            <span className="subtitle">{vocabList.length} từ vựng • {topic?.level}</span>
+        </div>
+      </header>
 
+      {/* GRID TỪ VỰNG */}
       <div className="vocab-grid">
-        {data.vocabs.map((vocab) => (
-          <div key={vocab.id} className="vocab-card">
-            <div className="vocab-header">
-              <span className="vocab-label">Từ vựng:</span>
-              <div className="vocab-actions">
-                <button 
-                  className="vocab-icon-btn" 
-                  title="Ghi âm"
-                  onClick={() => handleOpenModal(vocab)}
-                >
-                  <MicIcon color="#FF8A65" />
-                </button>
-                <button 
-                  className="vocab-icon-btn" 
-                  title="Nghe phát âm"
-                  onClick={() => handleSpeak(vocab.kanji)}
-                >
-                  <SpeakerIcon color="#42A5F5" />
-                </button>
-              </div>
-            </div>
-            <div className="vocab-word">{vocab.kanji}</div>
-            <div className="vocab-info-box">{vocab.hiragana}</div>
-            <div className="vocab-info-box">{vocab.meaning}</div>
+        {vocabList.map((vocab) => (
+          <div 
+            key={vocab.id} 
+            className="vocab-card"
+            onClick={() => handleCardClick(vocab)}
+          >
+            <div className="card-main">{vocab.word}</div>
+            <div className="card-sub">{vocab.reading}</div>
+            <div className="card-meaning">{vocab.meaning}</div>
           </div>
         ))}
       </div>
 
-      {selectedVocab && (
-        <div className="modal-overlay" onClick={handleCloseModal}>
-          <div className="modal-content">
-            <div className="modal-header">
-              <div>
-                <span className="modal-vocab-label">Từ vựng:</span>
-                <div className="modal-kanji">{selectedVocab.kanji}</div>
-              </div>
-              <div className="modal-actions">
-                <button 
-                  className={`action-btn btn-mic ${isRecording ? 'recording' : ''}`}
-                  onClick={handleRecord}
-                  title="Bấm để thu âm"
-                >
-                  <MicIcon color={isRecording ? "#FFF" : "#FF8A65"} />
-                </button>
-                <button 
-                  className="action-btn btn-speaker"
-                  onClick={() => handleSpeak(selectedVocab.kanji)}
-                  title="Nghe phát âm mẫu"
-                >
-                  <SpeakerIcon color="#42A5F5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="modal-info-box">{selectedVocab.hiragana}</div>
-            <div className="modal-info-box">{selectedVocab.meaning}</div>
-
-            {isRecording && (
-              <div className="score-result" style={{backgroundColor: '#f5f5f5', color: '#666'}}>
-                Đang lắng nghe giọng nói của bạn...
-              </div>
-            )}
+      {/* MODAL FLASHCARD */}
+      {isModalOpen && selectedVocab && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="close-btn" onClick={closeModal}>✕</button>
             
-            {/* 🟢 Hiển thị kết quả chấm điểm */}
-            {!isRecording && score !== null && feedback && (
-              <div className={`score-result ${feedback.className}`}>
-                Chính xác: {score}% - {feedback.text}
+            <div className="flashcard-display">
+              <div className="main-word">{selectedVocab.word}</div>
+              
+              <div className="action-row">
+                 {/* NÚT LOA */}
+                 <button className="icon-btn" onClick={() => handleSpeak(selectedVocab.word)}>
+                    <SpeakerIcon />
+                 </button>
+                 
+                 {/* NÚT MIC */}
+                 <button 
+                    className={`icon-btn ${isRecording ? 'recording' : ''}`} 
+                    onClick={handleRecord}
+                 >
+                    <MicIcon />
+                 </button>
               </div>
-            )}
 
+              {/* KHU VỰC HIỂN THỊ KẾT QUẢ CHECK MIC */}
+              {isRecording && (
+                <div className="feedback-box listening">
+                    Đang nghe... 🎤
+                </div>
+              )}
+
+              {feedback && !isRecording && (
+                <div className={`feedback-box ${feedback.type}`}>
+                    {feedback.text}
+                </div>
+              )}
+
+              <div className="info-section">
+                 <div className="reading-text">{selectedVocab.reading}</div>
+                 <div className="meaning-text">{selectedVocab.meaning}</div>
+              </div>
+
+              {/* PHÂN TÍCH KANJI */}
+              {selectedVocab.kanjiList && selectedVocab.kanjiList.length > 0 && (
+                  <div className="kanji-breakdown-section">
+                      <div className="section-title">Phân tích Hán tự:</div>
+                      <div className="kanji-chips">
+                          {selectedVocab.kanjiList.map(k => (
+                              <Tooltip key={k.id} title={`${k.meanings?.join(", ")} (Âm On: ${k.onyomi})`}>
+                                  <Tag color="purple" style={{ fontSize: 16, padding: '4px 10px', cursor: 'pointer' }}>
+                                      {k.kanji} - {k.meanings?.[0]}
+                                  </Tag>
+                              </Tooltip>
+                          ))}
+                      </div>
+                  </div>
+              )}
+            </div>
           </div>
         </div>
       )}

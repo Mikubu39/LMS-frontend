@@ -59,7 +59,7 @@ export default function App() {
   const isTeacherDomain = location.pathname.startsWith("/teacher");
 
   const isDashBoardLike = isAuthPage || isAdminDomain || isTeacherDomain;
-  // Nếu là trang chat AI thì chỉnh chiều cao cho phù hợp
+
   const mainMinHeight = isDashBoardLike ? "100vh" : "calc(100vh - 64px - 160px)";
 
   return (
@@ -89,7 +89,7 @@ export default function App() {
             
             {/* Route Client: Danh sách & Chi tiết chủ đề */}
             <Route path="/topics" element={<TopicsPage />} />
-            <Route path="/topics/:slug" element={<TopicDetailPage />} />
+            <Route path="/topics/:id" element={<TopicDetailPage />} />
             
             {/* Route cho trang chat AI */}
             <Route path="/ai-chat" element={<JapaneseVoiceChat />} />

@@ -13,7 +13,6 @@ const SpeakerIcon = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill=
 const MenuIcon = () => (<svg width="24" height="24" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>);
 
 const JapaneseVoiceChat = () => {
-  // Lấy User từ Redux
   const user = useSelector(selectUser);
 
   // --- STATE ---
@@ -22,23 +21,38 @@ const JapaneseVoiceChat = () => {
   const [messages, setMessages] = useState([]);
   const [customTopic, setCustomTopic] = useState("");
   
-  // Mic & UI State
+  // UI State
   const [isListening, setIsListening] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(false);
+  // Mặc định mở Sidebar trên Desktop (true)
+  const [showSidebar, setShowSidebar] = useState(true);
   
-  // Text đang nói dở (chưa gửi)
+  // Text đang nói dở (preview)
   const [transcriptText, setTranscriptText] = useState(""); 
 
   const recognitionRef = useRef(null);
-  const messagesEndRef = useRef(null);
+  
+  // Ref vào container tin nhắn để scroll cục bộ
+  const chatContainerRef = useRef(null);
 
-  // 1. Load History khi có User
+  // 1. Load History
   useEffect(() => {
-    if (user && user.user_id) {
-      fetchHistory();
-    }
+    if (user && user.user_id) fetchHistory();
   }, [user]);
+
+  // Handle Resize để tự động ẩn sidebar trên mobile nếu cần
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setShowSidebar(false);
+      } else {
+        setShowSidebar(true);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Init check
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const fetchHistory = async () => {
     try {
@@ -49,77 +63,65 @@ const JapaneseVoiceChat = () => {
     }
   };
 
-  // 2. Cấu hình Mic (Chế độ Continuous)
+  // 2. Cấu hình Mic
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
-      
-      // Quan trọng: Giữ mic luôn bật, không tự ngắt khi ngưng nói
       recognitionRef.current.continuous = true; 
-      // Hiển thị kết quả tạm thời
       recognitionRef.current.interimResults = true; 
       recognitionRef.current.lang = 'ja-JP';
 
       recognitionRef.current.onresult = (event) => {
-        let interimTranscript = '';
         let finalTranscript = '';
+        let interimTranscript = '';
 
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
+           if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
+           else interimTranscript += event.results[i][0].transcript;
         }
         
-        // Cập nhật text hiển thị realtime (ưu tiên final, nếu ko có thì dùng interim)
-        // Lưu ý: Logic này để hiển thị preview, khi gửi ta sẽ lấy giá trị này
-        const currentText = finalTranscript || interimTranscript;
-        if (currentText) {
-             setTranscriptText(prev => finalTranscript ? (prev + " " + finalTranscript) : finalTranscript || interimTranscript);
-             // Logic trên hơi phức tạp để nối chuỗi, ta làm đơn giản hơn cho bản demo:
-             // Chỉ lấy cái mới nhất mic nghe được (vì continuous = true nó sẽ cộng dồn)
-             let completeTranscript = "";
-             for (let i = 0; i < event.results.length; ++i) {
-                completeTranscript += event.results[i][0].transcript;
-             }
-             setTranscriptText(completeTranscript);
+        // Chỉ lấy chuỗi mới nhất để hiển thị preview
+        let completeTranscript = "";
+        for (let i = 0; i < event.results.length; ++i) {
+           completeTranscript += event.results[i][0].transcript;
         }
+        setTranscriptText(completeTranscript);
       };
 
       recognitionRef.current.onerror = (e) => {
-        console.error("Mic Error:", e.error);
         if(e.error !== 'no-speech') setIsListening(false);
       };
-      
-      recognitionRef.current.onend = () => {
-        // Mic tắt hẳn thì set state false
-        setIsListening(false);
-      };
+      recognitionRef.current.onend = () => setIsListening(false);
     }
-  }, [currentSessionId]);
+  }, []);
 
-  // 3. Auto scroll
+  // 3. Xử lý Scroll thông minh
+  // Mỗi khi tin nhắn thay đổi, cuộn xuống dưới
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    scrollToBottom(true); // True = Smooth scroll cho tin nhắn mới
   }, [messages, transcriptText, loading]);
+
+  // Hàm cuộn cục bộ (Không ảnh hưởng body)
+  const scrollToBottom = (smooth = false) => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto'
+      });
+    }
+  };
 
   // --- ACTIONS ---
 
   const handleCreateSession = async () => {
     if (!customTopic.trim()) return;
-
-    if (!user || !user.user_id) {
-      alert("Vui lòng đăng nhập để sử dụng tính năng này!");
-      return;
-    }
+    if (!user || !user.user_id) return alert("Vui lòng đăng nhập!");
 
     setLoading(true);
     try {
       const data = await AiChatService.startSession(user.user_id, customTopic);
-      
-      const newSession = { id: data.id, topic: customTopic, created_at: new Date() };
+      const newSession = { id: data.id, topic: customTopic };
       setHistory(prev => [newSession, ...prev]);
       setCurrentSessionId(data.id);
       
@@ -131,9 +133,12 @@ const JapaneseVoiceChat = () => {
       setMessages([welcomeMsg]);
       playAudio(welcomeMsg.content, 'ja');
       setCustomTopic("");
+      
+      // Mobile: Tự đóng sidebar khi bắt đầu
+      if (window.innerWidth < 768) setShowSidebar(false);
+      
     } catch (error) {
       console.error(error);
-      alert("Lỗi tạo phòng chat. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
@@ -141,13 +146,22 @@ const JapaneseVoiceChat = () => {
 
   const handleSelectSession = async (session) => {
     if (session.id === currentSessionId) return;
+    
     setLoading(true);
     setCurrentSessionId(session.id);
-    setShowSidebar(false);
-    setMessages([]); // Clear cũ trước khi load mới
+    
+    // Mobile: Tự đóng sidebar khi chọn
+    if (window.innerWidth < 768) setShowSidebar(false);
+
+    setMessages([]); // Clear màn hình để tránh hiển thị tin cũ
+    
     try {
       const detail = await AiChatService.getSessionDetail(session.id);
       setMessages(detail.messages || []);
+      
+      // QUAN TRỌNG: Khi load lịch sử cũ, cuộn xuống ngay lập tức (không smooth)
+      setTimeout(() => scrollToBottom(false), 100);
+      
     } catch (error) {
       console.error("Lỗi tải tin nhắn cũ");
     } finally {
@@ -158,14 +172,12 @@ const JapaneseVoiceChat = () => {
   const handleSendMessage = async (text) => {
     if (!text || !currentSessionId) return;
     
-    // 1. UI Update ngay lập tức
     const userMsg = { role: 'user', content: text };
     setMessages(prev => [...prev, userMsg]);
-    setTranscriptText(""); // Xóa text tạm
+    setTranscriptText(""); 
     setLoading(true);
 
     try {
-      // 2. Gọi API
       const aiData = await AiChatService.sendMessage(currentSessionId, text);
       setMessages(prev => [...prev, aiData]);
       playAudio(aiData.content, 'ja');
@@ -182,27 +194,19 @@ const JapaneseVoiceChat = () => {
     audio.play().catch(e => console.error("Audio Blocked", e));
   };
 
-  // --- LOGIC MIC MỚI: MANUAL STOP ---
   const toggleMic = () => {
     if (!recognitionRef.current) return alert("Trình duyệt không hỗ trợ");
-
     if (isListening) {
-      // Đang nghe -> Bấm dừng -> Gửi tin nhắn
-      recognitionRef.current.stop();
-      setIsListening(false);
-      
-      if (transcriptText.trim()) {
-        handleSendMessage(transcriptText);
-      }
+      recognitionRef.current.stop(); // Stop -> Gửi
+      if (transcriptText.trim()) handleSendMessage(transcriptText);
     } else {
-      // Đang tắt -> Bấm nói -> Reset text -> Bắt đầu
       setTranscriptText("");
-      recognitionRef.current.start();
+      recognitionRef.current.start(); // Start -> Nghe
       setIsListening(true);
     }
   };
 
-  // --- RENDER HELPERS ---
+  // --- RENDER ---
   const renderEmptyState = () => (
     <div className="empty-state">
       <div style={{fontSize: '4rem', marginBottom: '20px'}}>🎙️</div>
@@ -226,7 +230,7 @@ const JapaneseVoiceChat = () => {
 
   return (
     <div className="voice-chat-layout">
-      {/* SIDEBAR - HISTORY */}
+      {/* SIDEBAR */}
       <div className={`chat-sidebar ${showSidebar ? 'open' : ''}`}>
         <div className="sidebar-header">
           <button className="btn-new-chat" onClick={() => setCurrentSessionId(null)}>
@@ -243,23 +247,25 @@ const JapaneseVoiceChat = () => {
               {session.topic || "Không có chủ đề"}
             </li>
           ))}
-          {history.length === 0 && (
-            <li style={{padding: '20px', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem'}}>
-              {user ? "Chưa có lịch sử" : "Vui lòng đăng nhập"}
-            </li>
-          )}
         </ul>
       </div>
 
-      {/* OVERLAY MOBILE */}
-      {showSidebar && <div className="overlay" onClick={() => setShowSidebar(false)} style={{position:'absolute', inset:0, background:'rgba(0,0,0,0.5)', zIndex:40}}/>}
+      {/* OVERLAY MOBILE: Chỉ hiện khi màn hình nhỏ và sidebar đang mở */}
+      {showSidebar && (
+        <div className="sidebar-overlay d-md-none" onClick={() => setShowSidebar(false)} />
+      )}
 
       {/* MAIN CHAT AREA */}
       <div className="chat-main">
         {/* Topbar */}
         <div className="chat-topbar">
           <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
-             <button className="btn-icon-text" style={{fontSize:'1.5rem', color:'#333'}} onClick={() => setShowSidebar(true)}>
+             {/* SỬA: Logic Toggle Sidebar */}
+             <button 
+               className="btn-icon-text" 
+               style={{fontSize:'1.5rem', color:'#333'}} 
+               onClick={() => setShowSidebar(!showSidebar)}
+             >
                <MenuIcon/>
              </button>
              <span className="chat-topic-title">
@@ -275,7 +281,8 @@ const JapaneseVoiceChat = () => {
 
         {!currentSessionId ? renderEmptyState() : (
           <>
-            <div className="messages-container">
+            {/* SỬA: Gắn ref vào container này để scroll */}
+            <div className="messages-container" ref={chatContainerRef}>
               {messages.map((msg, idx) => (
                 <div key={idx} className={`message-group ${msg.role === 'user' ? 'user' : 'ai'}`}>
                   <div className="msg-avatar">{msg.role === 'user' ? '🧑‍🎓' : '🤖'}</div>
@@ -299,7 +306,6 @@ const JapaneseVoiceChat = () => {
                 </div>
               ))}
 
-              {/* [REAL-TIME PREVIEW] Bong bóng hiển thị text đang nói */}
               {isListening && transcriptText && (
                  <div className="message-group user" style={{opacity: 0.7}}>
                     <div className="msg-avatar">...</div>
@@ -309,8 +315,8 @@ const JapaneseVoiceChat = () => {
                  </div>
               )}
 
-              {loading && <div style={{textAlign:'center', color:'#94a3b8', fontStyle:'italic'}}>Sensei đang suy nghĩ...</div>}
-              <div ref={messagesEndRef} />
+              {loading && <div style={{textAlign:'center', color:'#94a3b8', fontStyle:'italic', marginTop:'10px'}}>Sensei đang suy nghĩ...</div>}
+              {/* Bỏ messagesEndRef ở đây vì ta dùng scrollToBottom trên container cha */}
             </div>
 
             <div className="chat-footer">
@@ -324,7 +330,7 @@ const JapaneseVoiceChat = () => {
                 </button>
               </div>
               <div className="status-text">
-                {isListening ? 'Nhấn để dừng và gửi' : 'Nhấn vào micro để nói (không tự ngắt)'}
+                {isListening ? 'Nhấn để dừng và gửi' : 'Nhấn vào micro để nói'}
               </div>
             </div>
           </>

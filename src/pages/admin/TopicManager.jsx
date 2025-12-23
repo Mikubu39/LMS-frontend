@@ -176,10 +176,14 @@ export default function TopicManager() {
     // Nếu API trả về vocabCount thì hiển thị, không thì bỏ qua hoặc hiện 0
     {
       title: "Số từ vựng",
-      dataIndex: "vocabCount", 
-      width: 120,
-      align: 'center',
-      render: (count) => <b>{count !== undefined ? count : "--"}</b>,
+      dataIndex: "vocabCount", // Khớp với tên biến map ở Backend
+      key: "vocabCount",
+      align: "center",
+      render: (count) => (
+        <Tag color="purple" style={{ fontSize: 14, padding: "0 10px" }}>
+          {count || 0} {/* Nếu không có thì hiện 0 */}
+        </Tag>
+      ),
     },
     {
       title: "Cập nhật",
