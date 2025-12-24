@@ -15,6 +15,7 @@ import io from 'socket.io-client';
 import ChatWidget from "@/components/ChatWidget";
 import { ChatApi } from "@/services/api/chatApi"; 
 import { ProfileApi } from "@/services/api/profileApi";
+import { AuthApi } from "@/services/api/authApi";
 import { logout, selectUser, setUser } from "@/redux/authSlice"; 
 import "../css/admin-layout.css";
 
@@ -93,10 +94,19 @@ export default function AdminLayout() {
     ]},
   ];
 
-  const handleUserMenuClick = ({ key }) => {
-    if(key === "logout") { dispatch(logout()); navigate("/login"); }
-    else if(key === "profile") navigate("/admin/profile");
-    else if(key === "settings") navigate("/admin/settings");
+  const handleUserMenuClick = async ({ key }) => {
+    if (key === "logout") {
+      // 1. Gọi backend để xóa token trong DB
+      await AuthApi.logout();
+      
+      // 2. Xóa state ở frontend
+      dispatch(logout());
+      
+      // 3. Chuyển về login
+      navigate("/login");
+    } 
+    else if (key === "profile") navigate("/admin/profile");
+    else if (key === "settings") navigate("/admin/settings");
   };
   const handleMenuClick = (info) => { if (info.key.startsWith("/admin")) navigate(info.key); };
 

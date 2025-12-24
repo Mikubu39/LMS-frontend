@@ -10,7 +10,8 @@ import { ClassApi } from "@/services/api/classApi";
 const { Text, Title } = Typography;
 const { TextArea } = Input;
 
-export default function ClassEssayTab({ courseId, students }) {
+// 👇 Đã thêm prop classId vào đây
+export default function ClassEssayTab({ courseId, classId, students }) {
   const [syllabus, setSyllabus] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedEssay, setSelectedEssay] = useState(null);
@@ -54,11 +55,26 @@ export default function ClassEssayTab({ courseId, students }) {
     setSelectedEssay(item);
     setLoadingSubs(true);
     try {
-      const res = await ClassApi.getSubmissionsByLessonItem(item.id);
+      // 👇 SỬA QUAN TRỌNG: Truyền classId vào API
+      // Lưu ý: Bạn cần đảm bảo hàm ClassApi.getSubmissionsByLessonItem 
+      // hỗ trợ nhận tham số thứ 2 hoặc nhận object params.
+      // Ví dụ gọi API chuẩn sẽ là: 
+      // await http.get('/admin/submissions', { params: { lessonItemId: item.id, classId: classId } })
+      
+      const res = await ClassApi.getSubmissionsByLessonItem(item.id, classId);
+      
       const map = {};
-      if (res?.data) res.data.forEach(sub => map[sub.studentId] = sub);
+      if (res?.data) {
+          res.data.forEach(sub => {
+              // Logic map studentId -> submission
+              map[sub.studentId] = sub;
+          });
+      }
       setSubmissionsMap(map);
-    } catch (error) { message.error("Lỗi tải bài nộp"); } 
+    } catch (error) { 
+        console.error(error);
+        message.error("Lỗi tải bài nộp"); 
+    } 
     finally { setLoadingSubs(false); }
   };
 
@@ -79,19 +95,19 @@ export default function ClassEssayTab({ courseId, students }) {
         const values = await form.validateFields();
         setSubmittingGrade(true);
 
-        // 👇 SỬA Ở ĐÂY: Ép kiểu score về Number
         const payload = {
           ...values,
           score: values.score !== null && values.score !== undefined ? Number(values.score) : 0
         };
 
-        const updated = await ClassApi.gradeSubmission(currentSub.id, payload); // Gửi payload đã sửa
+        const updated = await ClassApi.gradeSubmission(currentSub.id, payload);
         
+        // Cập nhật lại UI sau khi chấm
         setSubmissionsMap(prev => ({...prev, [updated.studentId]: updated}));
         message.success("Đã chấm điểm");
         setIsGrading(false);
     } catch(e) { 
-        console.error(e); // Log lỗi ra để xem
+        console.error(e);
         message.error("Lỗi chấm điểm: " + (e.response?.data?.message || "Không rõ nguyên nhân")); 
     }
     finally { setSubmittingGrade(false); }

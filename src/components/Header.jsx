@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from "react-redux";
 
 import logo from "../assets/logo.png";
 import "../css/header.css";
-
+import { AuthApi } from "../services/api/authApi";
 import {
   selectUser,
   selectIsAuthenticated,
@@ -87,11 +87,12 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => { // Thêm async
+    await AuthApi.logout(); 
     dispatch(logout());
     setOpen(false);
     navigate("/login");
-  };
+};
 
   const handleNavigate = (path) => {
     setOpen(false);

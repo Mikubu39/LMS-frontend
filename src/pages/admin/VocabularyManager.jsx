@@ -11,7 +11,7 @@ import {
   ExclamationCircleOutlined
 } from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router-dom";
-import * as XLSX from "xlsx"; // 🟢 Thư viện xử lý Excel
+import * as XLSX from "xlsx";
 
 // IMPORT API
 import { VocabularyApi } from "../../services/api/vocabularyApi";
@@ -38,7 +38,7 @@ export default function VocabularyManager() {
   const [vocabForm] = Form.useForm();
   const [kanjiOptions, setKanjiOptions] = useState([]); 
 
-  // State chọn nhiều (Bulk Action)
+  // State chọn nhiều
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
 
   // --- INITIAL LOAD ---
@@ -49,7 +49,6 @@ export default function VocabularyManager() {
     }
   }, [topicId]);
 
-  // Load Kanji khi mở modal
   useEffect(() => {
     if (isVocabModalOpen) {
       fetchKanjiOptions();
@@ -80,7 +79,7 @@ export default function VocabularyManager() {
         pageSize: pagination.pageSize,
         total: res.total
       });
-      setSelectedRowKeys([]); // Reset selection khi chuyển trang
+      setSelectedRowKeys([]);
     } catch (error) {
       message.error("Lỗi tải danh sách từ vựng");
     } finally {
@@ -97,24 +96,35 @@ export default function VocabularyManager() {
     }
   };
 
-  // --- HANDLERS (Thêm / Sửa / Xóa) ---
+  // --- HANDLERS ---
 
   const handleSaveVocab = async (values) => {
-    try {
-      const payload = { ...values, topic_id: topicId };
-      if (editingVocab) {
-        await VocabularyApi.update(editingVocab.id, payload);
-        message.success("Cập nhật thành công!");
-      } else {
-        await VocabularyApi.create(payload);
-        message.success("Thêm mới thành công!");
-      }
-      setIsVocabModalOpen(false);
-      fetchVocabList(pagination.current);
-    } catch (error) {
-      message.error("Có lỗi xảy ra!");
+  try {
+    // 🟢 SỬA: Đổi topic_id thành topicId, đổi kanji_ids thành kanjiIds (nếu form trả về kanji_ids)
+    const payload = { 
+        ...values, 
+        topicId: topicId,           // Sửa thành camelCase
+        kanjiIds: values.kanji_ids  // Map từ form name (kanji_ids) sang DTO name (kanjiIds)
+    };
+    
+    // Xóa field thừa để data sạch hơn (tuỳ chọn)
+    delete payload.kanji_ids; 
+
+    if (editingVocab) {
+      await VocabularyApi.update(editingVocab.id, payload);
+      message.success("Cập nhật thành công!");
+    } else {
+      await VocabularyApi.create(payload);
+      message.success("Thêm mới thành công!");
     }
-  };
+    setIsVocabModalOpen(false);
+    fetchVocabList(pagination.current);
+  } catch (error) {
+    // Log lỗi chi tiết để debug nếu cần
+    console.error(error.response?.data); 
+    message.error("Có lỗi xảy ra: " + (error.response?.data?.message || "Lỗi không xác định"));
+  }
+};
 
   const openVocabModal = (record = null) => {
     setEditingVocab(record);
@@ -127,7 +137,6 @@ export default function VocabularyManager() {
     setIsVocabModalOpen(true);
   };
 
-  // 🟢 CHỨC NĂNG XÓA NHIỀU (BULK DELETE)
   const handleBulkDelete = () => {
     confirm({
       title: `Bạn có chắc muốn xóa ${selectedRowKeys.length} từ vựng đã chọn?`,
@@ -139,12 +148,9 @@ export default function VocabularyManager() {
       onOk: async () => {
         setLoading(true);
         try {
-          // Gọi API xóa từng cái một (Promise.all) vì chưa có API bulk delete
-          // Đây là cách xử lý ở Frontend khi Backend chưa hỗ trợ xóa mảng ID
           await Promise.all(selectedRowKeys.map(id => VocabularyApi.delete(id)));
-          
           message.success("Đã xóa các từ vựng đã chọn!");
-          setSelectedRowKeys([]); // Reset chọn
+          setSelectedRowKeys([]);
           fetchVocabList(pagination.current);
         } catch (error) {
           message.error("Xóa thất bại, vui lòng thử lại!");
@@ -155,48 +161,37 @@ export default function VocabularyManager() {
     });
   };
 
-  // 🟢 CHỨC NĂNG TẢI FILE MẪU EXCEL
   const handleDownloadTemplate = () => {
-    // Dữ liệu mẫu
     const templateData = [
       { "Từ vựng": "先生", "Cách đọc": "せんせい", "Nghĩa": "Giáo viên" },
       { "Từ vựng": "学生", "Cách đọc": "がくせい", "Nghĩa": "Học sinh" },
     ];
 
-    // Tạo workbook
     const ws = XLSX.utils.json_to_sheet(templateData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "TuVungMau");
-
-    // Tải xuống
     XLSX.writeFile(wb, "Mau_Nhap_Tu_Vung.xlsx");
   };
 
-  // 🟢 CHỨC NĂNG IMPORT EXCEL
+  // 🟢 FIX 413: CHIA NHỎ MẢNG DỮ LIỆU
   const handleImportExcel = (file) => {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: "array" });
-        
-        // Lấy sheet đầu tiên
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
-        
-        // Chuyển đổi sang JSON
         const jsonData = XLSX.utils.sheet_to_json(sheet);
 
-        // Map dữ liệu từ tiếng Việt sang tiếng Anh cho Backend
         const formattedData = jsonData.map(item => ({
             word: item["Từ vựng"] || item["word"],
             reading: item["Cách đọc"] || item["reading"],
             meaning: item["Nghĩa"] || item["meaning"],
             topicId: topicId,
-            kanjiIds: [] // Mặc định rỗng, backend sẽ tự động detect
+            kanjiIds: [] 
         }));
 
-        // Lọc bỏ những dòng trống
         const validData = formattedData.filter(i => i.word && i.meaning);
 
         if (validData.length === 0) {
@@ -204,23 +199,36 @@ export default function VocabularyManager() {
             return;
         }
 
+        // --- LOGIC CHIA NHỎ ---
         setLoading(true);
-        await VocabularyApi.importBulk(topicId, validData);
-        message.success(`Đã thêm thành công ${validData.length} từ vựng!`);
+        const BATCH_SIZE = 50; 
+        const totalBatches = Math.ceil(validData.length / BATCH_SIZE);
+        
+        message.loading({ content: `Đang import 0/${totalBatches} gói...`, key: 'vocabImport' });
+
+        for (let i = 0; i < validData.length; i += BATCH_SIZE) {
+            const batch = validData.slice(i, i + BATCH_SIZE);
+            await VocabularyApi.importBulk(topicId, batch);
+            
+            // Update loading
+            const current = Math.floor(i / BATCH_SIZE) + 1;
+            message.loading({ content: `Đang import ${current}/${totalBatches} gói...`, key: 'vocabImport' });
+        }
+
+        message.success({ content: `Thành công! Đã thêm ${validData.length} từ vựng.`, key: 'vocabImport' });
         fetchVocabList(1);
 
       } catch (error) {
         console.error(error);
-        message.error("Lỗi đọc file Excel! Hãy dùng file mẫu.");
+        message.error({ content: "Lỗi import! Hãy kiểm tra file.", key: 'vocabImport' });
       } finally {
         setLoading(false);
       }
     };
     reader.readAsArrayBuffer(file);
-    return false; // Chặn Antd upload
+    return false; 
   };
 
-  // Cấu hình bảng
   const rowSelection = {
     selectedRowKeys,
     onChange: (newSelectedRowKeys) => setSelectedRowKeys(newSelectedRowKeys),
@@ -276,7 +284,6 @@ export default function VocabularyManager() {
         style={{ marginBottom: 16 }}
       />
 
-      {/* HEADER & CÁC NÚT CHỨC NĂNG */}
       <Card bordered={false} style={{ marginBottom: 24 }}>
          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
             <div>
@@ -285,12 +292,10 @@ export default function VocabularyManager() {
             </div>
 
             <Space wrap>
-                {/* Nút tải mẫu */}
                 <Button icon={<DownloadOutlined />} onClick={handleDownloadTemplate}>
                     Tải file mẫu Excel
                 </Button>
 
-                {/* Nút Import Excel */}
                 <Upload 
                     accept=".xlsx, .xls" 
                     showUploadList={false} 
@@ -299,14 +304,12 @@ export default function VocabularyManager() {
                     <Button icon={<UploadOutlined />}>Nhập từ Excel</Button>
                 </Upload>
 
-                {/* Nút Thêm thủ công */}
                 <Button type="primary" icon={<PlusOutlined />} onClick={() => openVocabModal()}>
                     Thêm từ vựng
                 </Button>
             </Space>
          </div>
 
-         {/* Nút Bulk Action (Chỉ hiện khi có chọn dòng) */}
          {selectedRowKeys.length > 0 && (
             <div style={{ marginTop: 16, padding: '8px 16px', background: '#fff1f0', border: '1px solid #ffa39e', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 16 }}>
                 <Text type="danger">Đang chọn {selectedRowKeys.length} từ vựng</Text>
@@ -318,9 +321,8 @@ export default function VocabularyManager() {
          )}
       </Card>
 
-      {/* BẢNG DỮ LIỆU */}
       <Table 
-        rowSelection={rowSelection} // 🟢 Kích hoạt checkbox
+        rowSelection={rowSelection}
         columns={columns} 
         dataSource={vocabList} 
         rowKey="id"
@@ -333,7 +335,6 @@ export default function VocabularyManager() {
         }}
       />
 
-      {/* MODAL THÊM/SỬA (Giữ nguyên form nhập) */}
       <Modal
         title={editingVocab ? "Cập nhật Từ vựng" : "Thêm Từ vựng mới"}
         open={isVocabModalOpen}

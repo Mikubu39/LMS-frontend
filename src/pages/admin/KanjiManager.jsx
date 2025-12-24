@@ -11,7 +11,7 @@ import {
   DownloadOutlined, ExclamationCircleOutlined 
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
-import * as XLSX from "xlsx"; // 🟢 Thư viện Excel
+import * as XLSX from "xlsx";
 
 // IMPORT API
 import { KanjiApi } from "../../services/api/kanjiApi";
@@ -34,7 +34,7 @@ export default function KanjiManager() {
   const [editingKanji, setEditingKanji] = useState(null);
   const [form] = Form.useForm();
 
-  // State chọn nhiều (Bulk Action)
+  // State chọn nhiều
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
 
   // --- INITIAL LOAD ---
@@ -59,18 +59,13 @@ export default function KanjiManager() {
         pageSize: pagination.pageSize,
         total: res.total || 0
       });
-      setSelectedRowKeys([]); // Reset chọn khi chuyển trang
+      setSelectedRowKeys([]);
     } catch (error) {
       console.error(error);
       message.error("Lỗi tải danh sách Kanji");
     } finally {
       setLoading(false);
     }
-  };
-
-  // --- HANDLERS ---
-  const handleSearch = () => {
-    fetchData(1);
   };
 
   const handleSave = async (values) => {
@@ -99,7 +94,6 @@ export default function KanjiManager() {
     setIsModalOpen(true);
   };
 
-  // 🟢 CHỨC NĂNG XÓA NHIỀU
   const handleBulkDelete = () => {
     confirm({
       title: `Xóa ${selectedRowKeys.length} chữ Kanji đã chọn?`,
@@ -124,7 +118,6 @@ export default function KanjiManager() {
     });
   };
 
-  // 🟢 TẢI FILE MẪU EXCEL
   const handleDownloadTemplate = () => {
     const templateData = [
       { 
@@ -151,7 +144,7 @@ export default function KanjiManager() {
     XLSX.writeFile(wb, "Mau_Kanji.xlsx");
   };
 
-  // 🟢 IMPORT EXCEL
+  // 🟢 FIX 413: CHIA NHỎ MẢNG DỮ LIỆU (BATCHING)
   const handleImportExcel = (file) => {
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -167,27 +160,39 @@ export default function KanjiManager() {
             return;
         }
 
-        // Map dữ liệu tiếng Việt -> tiếng Anh cho Backend
         const formattedData = jsonData.map(item => ({
             kanji: item["Kanji"] || item["kanji"],
             onyomi: item["Âm On"] || item["onyomi"] || "",
             kunyomi: item["Âm Kun"] || item["kunyomi"] || "",
-            // Nghĩa trong Excel là chuỗi "Nghĩa 1, Nghĩa 2" -> Tách thành mảng
             meanings: (item["Nghĩa"] || item["meanings"] || "").split(/,|;/).map(s => s.trim()).filter(s => s),
             mnemonic: item["Mẹo nhớ"] || item["mnemonic"] || "",
             jlpt: item["Level"] || item["jlpt"] || "N5"
         }));
 
-        // Lọc bỏ dòng không có Kanji
         const validData = formattedData.filter(i => i.kanji);
-
+        
+        // --- LOGIC CHIA NHỎ (BATCHING) ---
         setLoading(true);
-        await KanjiApi.importBulk(validData); // Gọi API import
-        message.success(`Đã thêm ${validData.length} chữ Kanji thành công!`);
+        const BATCH_SIZE = 50; // Mỗi lần gửi 50 dòng
+        const totalBatches = Math.ceil(validData.length / BATCH_SIZE);
+        
+        message.loading({ content: `Đang xử lý 0/${totalBatches} gói dữ liệu...`, key: 'importProcess' });
+
+        for (let i = 0; i < validData.length; i += BATCH_SIZE) {
+            const batch = validData.slice(i, i + BATCH_SIZE);
+            await KanjiApi.importBulk(batch);
+            
+            // Cập nhật tiến độ
+            const currentBatch = Math.floor(i / BATCH_SIZE) + 1;
+            message.loading({ content: `Đang xử lý ${currentBatch}/${totalBatches} gói dữ liệu...`, key: 'importProcess' });
+        }
+
+        message.success({ content: `Hoàn tất! Đã thêm ${validData.length} chữ Kanji.`, key: 'importProcess' });
         fetchData(1);
+
       } catch (error) {
         console.error(error);
-        message.error("Lỗi đọc file Excel!");
+        message.error({ content: "Lỗi khi import! Có thể dữ liệu sai định dạng.", key: 'importProcess' });
       } finally {
         setLoading(false);
       }
@@ -196,7 +201,6 @@ export default function KanjiManager() {
     return false;
   };
 
-  // Cấu hình bảng
   const rowSelection = {
     selectedRowKeys,
     onChange: (keys) => setSelectedRowKeys(keys),
@@ -281,7 +285,6 @@ export default function KanjiManager() {
             <Title level={3} style={{ margin: 0 }}>Từ điển Kanji</Title>
             
             <Space wrap>
-                {/* 🟢 NHÓM NÚT CÔNG CỤ EXCEL */}
                 <Button icon={<DownloadOutlined />} onClick={handleDownloadTemplate}>
                     Tải mẫu Excel
                 </Button>
@@ -299,7 +302,6 @@ export default function KanjiManager() {
             </Space>
         </div>
 
-        {/* Thanh công cụ tìm kiếm */}
         <div style={{ marginTop: 16, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
              <Select 
                 placeholder="Lọc Level" 
@@ -307,9 +309,6 @@ export default function KanjiManager() {
                 allowClear
                 onChange={(val) => {
                     setFilters({ ...filters, jlpt: val });
-                    // Lưu ý: fetchData cần được gọi lại khi state thay đổi, 
-                    // nhưng ở đây ta trigger bằng useEffect hoặc gọi trực tiếp
-                    // Để đơn giản, ta gọi fetchData luôn
                     fetchData(1, { ...filters, jlpt: val });
                 }}
              >
@@ -330,7 +329,6 @@ export default function KanjiManager() {
              <Button onClick={() => fetchData(1)}>Tìm</Button>
         </div>
 
-        {/* Thông báo xóa nhiều */}
         {selectedRowKeys.length > 0 && (
             <div style={{ marginTop: 16, padding: '8px 16px', background: '#fff1f0', border: '1px solid #ffa39e', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 16 }}>
                 <Text type="danger">Đang chọn {selectedRowKeys.length} chữ Kanji</Text>
@@ -343,7 +341,7 @@ export default function KanjiManager() {
       </Card>
 
       <Table
-        rowSelection={rowSelection} // 🟢 Bật chọn nhiều
+        rowSelection={rowSelection}
         columns={columns}
         dataSource={kanjis}
         rowKey="id"
@@ -356,7 +354,6 @@ export default function KanjiManager() {
         }}
       />
 
-      {/* MODAL EDIT/CREATE */}
       <Modal
         title={editingKanji ? "Cập nhật Kanji" : "Thêm Kanji mới"}
         open={isModalOpen}

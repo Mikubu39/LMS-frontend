@@ -14,6 +14,7 @@ import io from 'socket.io-client';
 import ChatWidget from "@/components/ChatWidget";
 import { ChatApi } from "@/services/api/chatApi"; 
 import { ProfileApi } from "@/services/api/profileApi";
+import { AuthApi } from "@/services/api/authApi";
 import { logout, selectUser, setUser } from "@/redux/authSlice"; 
 import "../css/admin-layout.css"; // Có thể tái sử dụng CSS của admin hoặc tạo file riêng teacher-layout.css
 
@@ -85,10 +86,14 @@ export default function TeacherLayout() {
     // ĐÃ XÓA MỤC QUẢN LÝ NGƯỜI DÙNG
   ];
 
-  const handleUserMenuClick = ({ key }) => {
-    if(key === "logout") { dispatch(logout()); navigate("/login"); }
-    else if(key === "profile") navigate("/teacher/profile"); // Đổi path
-    else if(key === "settings") navigate("/teacher/settings"); // Đổi path
+  const handleUserMenuClick = async ({ key }) => {
+    if (key === "logout") {
+      await AuthApi.logout();
+      dispatch(logout());
+      navigate("/login");
+    } 
+    else if (key === "profile") navigate("/teacher/profile");
+    else if (key === "settings") navigate("/teacher/settings");
   };
 
   const handleMenuClick = (info) => { 

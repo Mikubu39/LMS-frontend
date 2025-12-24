@@ -1,6 +1,7 @@
 // src/App.jsx
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-
+import { useSelector } from "react-redux"; 
+import { selectUser } from "./redux/authSlice"
 import Header from "./components/Header.jsx";
 import Footer from "./components/Footer.jsx";
 
@@ -52,6 +53,23 @@ import TeacherClassManagement from "./pages/teacher/TeacherClassManagement.jsx";
 import TeacherClassDetail from "./pages/teacher/TeacherClassDetail.jsx";
 import TeacherPostManagement from "./pages/teacher/TeacherPostManagement.jsx";
 
+
+const RoleBasedHome = () => {
+  const user = useSelector(selectUser);
+  const roles = user?.roles || []; // Lấy mảng roles từ Redux (đã được chuẩn hóa ở authSlice)
+
+  // Kiểm tra role để điều hướng
+  if (roles.includes("admin")) {
+    return <Navigate to="/admin" replace />;
+  }
+  if (roles.includes("teacher")) {
+    return <Navigate to="/teacher" replace />;
+  }
+
+  // Nếu là student hoặc khách -> Về trang Home bình thường
+  return <Home />;
+};
+
 export default function App() {
   const location = useLocation();
   const isAuthPage = location.pathname.startsWith("/login");
@@ -78,7 +96,7 @@ export default function App() {
 
           {/* ===== PUBLIC / STUDENT ROUTES ===== */}
           <Route element={<RequireAuth />}>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<RoleBasedHome />} />
             <Route path="/posts" element={<Posts />} />
             <Route path="/posts/:postId" element={<PostDetail />} />
             <Route path="/dashboard" element={<Dashboard />} />

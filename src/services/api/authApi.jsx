@@ -108,4 +108,18 @@ export const AuthApi = {
       throw new Error(msg);
     }
   },
+
+  async logout() {
+    try {
+      // Gọi API báo server hủy token
+      await http.post("/auth/logout");
+    } catch (error) {
+      console.warn("Lỗi gọi API logout (có thể token đã hết hạn):", error);
+    } finally {
+      // Luôn xóa localStorage dù server trả về lỗi hay thành công
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      localStorage.removeItem("user");
+    }
+  }
 };
