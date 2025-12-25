@@ -1,23 +1,32 @@
-import { useEffect, useState } from "react";
+// src/pages/admin/ClassManagement.jsx
+import { useEffect, useState, useMemo } from "react";
 import { 
   Table, Button, Input, Modal, Form, Select, 
-  Tag, message, Popconfirm, DatePicker 
+  Tag, message, Popconfirm, DatePicker, Card, 
+  Avatar, Tooltip, Typography, Space, Row, Col, Tabs, Badge 
 } from "antd";
 import { 
   PlusOutlined, SearchOutlined, EditOutlined, 
-  DeleteOutlined, ApartmentOutlined 
+  DeleteOutlined, CalendarOutlined, TeamOutlined, 
+  UserOutlined
 } from "@ant-design/icons";
 import moment from "moment";
 import { useNavigate } from "react-router-dom"; 
-
+// Import đúng các API service
 import { ClassApi } from "@/services/api/classApi";
+import { UserApi } from "@/services/api/userApi"; // [FIX] Import UserApi
 
 const { Option } = Select;
+const { Text, Title } = Typography;
+const { RangePicker } = DatePicker;
 
 export default function ClassManagement() {
   const navigate = useNavigate();
   const [classes, setClasses] = useState([]);
+  const [teachers, setTeachers] = useState([]); // State lưu danh sách giáo viên
   const [loading, setLoading] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState(null);
@@ -27,13 +36,42 @@ export default function ClassManagement() {
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      const data = await ClassApi.getAll();
-      setClasses(data || []);
-    } catch (error) { message.error("Lỗi tải dữ liệu"); } 
-    finally { setLoading(false); }
+      const res = await ClassApi.getAll({ page: 1, limit: 1000 });
+      // [FIX] Xử lý an toàn: API có thể trả về { data: [] } hoặc []
+      const dataList = res.data || res.items || (Array.isArray(res) ? res : []);
+      setClasses(dataList);
+    } catch (error) { 
+      console.error("Fetch Error:", error);
+      message.error("Lỗi tải dữ liệu lớp học"); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
-  useEffect(() => { fetchAllData(); }, []);
+  // Hàm tải danh sách giáo viên
+  const fetchTeachers = async () => {
+    try {
+        // [FIX] Dùng UserApi.getAll để gọi đúng /users/admin
+        const res = await UserApi.getAll({ role: 'teacher', limit: 100 });
+        
+        // [FIX] Kiểm tra cấu trúc dữ liệu trả về (Backend thường trả về {data: [...], meta: ...})
+        const teacherList = res.data || res || [];
+        
+        if (Array.isArray(teacherList)) {
+            setTeachers(teacherList);
+        } else {
+            console.warn("API Teacher trả về không phải mảng:", res);
+            setTeachers([]);
+        }
+    } catch (error) {
+        console.error("Lỗi tải giáo viên:", error);
+    }
+  };
+
+  useEffect(() => { 
+      fetchAllData(); 
+      fetchTeachers(); 
+  }, []);
 
   // --- HANDLERS ---
   const handleCreate = () => {
@@ -47,8 +85,12 @@ export default function ClassManagement() {
     setEditingClass(record);
     form.setFieldsValue({
       ...record,
-      start_date: record.start_date ? moment(record.start_date) : null,
-      end_date: record.end_date ? moment(record.end_date) : null,
+      dateRange: [
+        record.start_date ? moment(record.start_date) : null,
+        record.end_date ? moment(record.end_date) : null,
+      ],
+      // [FIX] Map danh sách object teachers thành mảng các ID để hiển thị trong Select
+      teacherIds: record.teachers?.map(t => t.user_id) || [],
     });
     setIsModalOpen(true);
   };
@@ -56,13 +98,17 @@ export default function ClassManagement() {
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
+      const [start, end] = values.dateRange || [];
+      
       const payload = {
-        ...values,
-        // 👇 THÊM 2 DÒNG NÀY: Gửi mảng rỗng mặc định
+        code: values.code,
+        name: values.name,
+        status: values.status,
         courseIds: [], 
-        teacherIds: [],
-        start_date: values.start_date ? values.start_date.format("YYYY-MM-DD") : null,
-        end_date: values.end_date ? values.end_date.format("YYYY-MM-DD") : null,
+        // [FIX] Lấy teacherIds từ form values gửi lên server
+        teacherIds: values.teacherIds || [], 
+        start_date: start ? start.format("YYYY-MM-DD") : null,
+        end_date: end ? end.format("YYYY-MM-DD") : null,
       };
 
       if (editingClass) {
@@ -74,7 +120,10 @@ export default function ClassManagement() {
       }
       setIsModalOpen(false);
       fetchAllData();
-    } catch (error) { console.error(error); }
+    } catch (error) { 
+        console.error("Save Error:", error);
+        message.error("Lưu thất bại");
+    }
   };
   
   const handleDelete = async (id) => {
@@ -85,59 +134,83 @@ export default function ClassManagement() {
     } catch (error) { message.error("Lỗi xóa lớp"); }
   };
 
+  // --- FILTER LOGIC ---
+  const filteredData = useMemo(() => {
+    let result = classes || [];
+
+    if (statusFilter !== 'All') {
+      result = result.filter(c => c.status === statusFilter);
+    }
+
+    if (searchText) {
+      const lower = searchText.toLowerCase();
+      result = result.filter(c => 
+        c.name?.toLowerCase().includes(lower) || 
+        c.code?.toLowerCase().includes(lower)
+      );
+    }
+    return result;
+  }, [classes, statusFilter, searchText]);
+
   // --- COLUMNS ---
   const columns = [
     {
-      title: 'Mã lớp',
-      dataIndex: 'code',
-      key: 'code',
-      width: 150, // Cố định chiều rộng để bảng đỡ bị nhảy
-      render: text => <b style={{color:'#1890ff'}}>{text}</b>,
-    },
-    {
-      title: 'Tên lớp',
+      title: 'Lớp học',
       dataIndex: 'name',
       key: 'name',
+      width: 250,
       render: (text, record) => (
-        <a onClick={() => navigate(`/admin/classes/${record.class_id}`)} style={{fontWeight: 500}}>
-          {text}
-        </a>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+           <a onClick={() => navigate(`/admin/classes/${record.class_id}`)} style={{fontWeight: 600, fontSize: 15, color: '#1677ff'}}>
+             {text}
+           </a>
+           <Space size={8} style={{marginTop: 4}}>
+              <Tag color="geekblue">{record.code}</Tag>
+              {/* [FIX] Sử dụng total_students thay vì students.length */}
+              <Text type="secondary" style={{fontSize: 12}}>
+                <TeamOutlined /> {record.total_students || 0} HV
+              </Text>
+           </Space>
+        </div>
       ),
     },
     {
-      title: 'Khóa học',
-      dataIndex: 'courses',
-      width: 120,
-      render: (courses) => (
-         // Giữ nguyên hiển thị số lượng
-         <Tag color="geekblue">{courses?.length || 0} khóa</Tag>
-      )
-    },
-    {
       title: 'Giảng viên',
-      dataIndex: 'teachers',
-      width: 250, // Tăng độ rộng cột này để hiển thị tên
-      render: (teachers) => (
-         // 👇 SỬA ĐỔI: Hiển thị tên giảng viên
-         <div style={{display:'flex', flexWrap:'wrap', gap: 4}}>
-            {teachers && teachers.length > 0 ? (
-                teachers.map(t => (
-                    <Tag key={t.user_id}>{t.full_name}</Tag>
-                ))
-            ) : (
-                <span style={{color: '#ccc', fontSize: 12}}>Chưa gán</span>
-            )}
+      key: 'info',
+      width: 200,
+      render: (_, r) => (
+         <div style={{display:'flex', alignItems:'center', gap: 8}}>
+            {/* [FIX] Kiểm tra mảng teachers an toàn hơn */}
+            {Array.isArray(r.teachers) && r.teachers.length > 0 ? (
+                <Avatar.Group maxCount={3} size="small">
+                    {r.teachers.map(t => (
+                        <Tooltip title={t.full_name} key={t.user_id}>
+                            <Avatar 
+                              src={t.avatar} 
+                              style={{backgroundColor: '#87d068'}} 
+                              icon={<UserOutlined />} 
+                            />
+                        </Tooltip>
+                    ))}
+                </Avatar.Group>
+            ) : <span style={{color:'#999', fontSize: 12, fontStyle:'italic'}}>Chưa gán GV</span>}
          </div>
       )
     },
     {
-      title: 'Thời gian',
+      title: 'Thời gian đào tạo',
       key: 'time',
-      width: 150,
+      width: 220,
       render: (_, r) => (
         <div style={{fontSize: 13}}>
-          <div>BĐ: {r.start_date ? moment(r.start_date).format("DD/MM/YYYY") : '--'}</div>
-          <div>KT: {r.end_date ? moment(r.end_date).format("DD/MM/YYYY") : '--'}</div>
+           <div style={{display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4}}>
+              <CalendarOutlined style={{color: '#1890ff'}}/> 
+              <span>{r.start_date ? moment(r.start_date).format("DD/MM/YYYY") : '--'}</span>
+           </div>
+           <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
+              <span style={{color: '#888', paddingLeft: 22}}>đến</span>
+              <span>{r.end_date ? moment(r.end_date).format("DD/MM/YYYY") : '--'}</span>
+           </div>
         </div>
       )
     },
@@ -147,79 +220,143 @@ export default function ClassManagement() {
       align: 'center',
       width: 120,
       render: (status) => {
-        let color = status === 'Active' ? 'green' : status === 'Pending' ? 'orange' : 'red';
-        return <Tag color={color}>{status}</Tag>;
+        let color = status === 'Active' ? 'success' : status === 'Pending' ? 'warning' : 'default';
+        let text = status === 'Active' ? 'Đang học' : status === 'Pending' ? 'Sắp mở' : 'Kết thúc';
+        return <Badge status={color} text={text} />;
       }
     },
     {
-      title: 'Thao tác',
+      title: '',
       key: 'action',
-      align: 'center',
-      width: 120,
+      align: 'right',
+      width: 100,
       render: (_, record) => (
-        <div style={{display:'flex', justifyContent:'center', gap: 8}}>
-          <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
-          <Popconfirm title="Xóa lớp?" onConfirm={() => handleDelete(record.class_id)}>
-            <Button danger icon={<DeleteOutlined />} size="small" />
+        <Space>
+          <Tooltip title="Sửa thông tin">
+            <Button type="text" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+          </Tooltip>
+          <Popconfirm title="Xóa lớp này?" description="Hành động không thể hoàn tác" onConfirm={() => handleDelete(record.class_id)} okType="danger">
+            <Tooltip title="Xóa lớp">
+              <Button type="text" danger icon={<DeleteOutlined />} />
+            </Tooltip>
           </Popconfirm>
-        </div>
+        </Space>
       )
     }
   ];
 
+  const tabItems = [
+    { key: 'All', label: 'Tất cả' },
+    { key: 'Active', label: 'Đang hoạt động' },
+    { key: 'Pending', label: 'Sắp mở' },
+    { key: 'Finished', label: 'Đã kết thúc' },
+  ];
+
   return (
-    <div style={{ padding: 24, background: '#f0f2f5', minHeight: '100vh' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h2 style={{ margin: 0 }}><ApartmentOutlined /> Quản lý Lớp học</h2>
-        <Button type="primary" icon={<PlusOutlined />} size="large" onClick={handleCreate}>
-          Mở lớp mới
-        </Button>
+    <div style={{ padding: 24, background: '#f5f7fa', minHeight: '100vh' }}>
+      
+      {/* Header */}
+      <div style={{ marginBottom: 24 }}>
+         <Row justify="space-between" align="middle">
+            <Col>
+              <Title level={2} style={{ margin: 0 }}>Quản lý Lớp học</Title>
+              <Text type="secondary">Danh sách các lớp học và tiến độ đào tạo</Text>
+            </Col>
+            <Col>
+               <Button type="primary" size="large" icon={<PlusOutlined />} onClick={handleCreate}>
+                  Mở lớp mới
+               </Button>
+            </Col>
+         </Row>
       </div>
 
-      <div style={{ background: 'white', padding: 24, borderRadius: 8 }}>
-        <div style={{ marginBottom: 16, maxWidth: 400 }}>
-          <Input prefix={<SearchOutlined />} placeholder="Tìm kiếm..." allowClear />
+      {/* Main Content */}
+      <Card bordered={false} style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+        <Tabs activeKey={statusFilter} onChange={setStatusFilter} items={tabItems} style={{ marginBottom: 16 }} />
+
+        <div style={{ marginBottom: 20 }}>
+          <Input 
+             prefix={<SearchOutlined style={{color:'#bfbfbf'}} />} 
+             placeholder="Tìm kiếm theo Tên hoặc Mã lớp..." 
+             size="large"
+             allowClear
+             style={{ maxWidth: 400 }}
+             onChange={(e) => setSearchText(e.target.value)}
+          />
         </div>
-        <Table columns={columns} dataSource={classes} rowKey="class_id" loading={loading} pagination={{ pageSize: 8 }} />
-      </div>
 
-      {/* MODAL ĐÃ ĐƯỢC LÀM TO HƠN */}
+        <Table 
+          columns={columns} 
+          dataSource={filteredData} 
+          rowKey="class_id" 
+          loading={loading} 
+          pagination={{ pageSize: 8, showSizeChanger: true, showTotal: (total) => `Tổng ${total} lớp` }} 
+        />
+      </Card>
+
+      {/* Modal Form */}
       <Modal
-        title={editingClass ? "Chỉnh sửa thông tin" : "Tạo lớp mới"}
+        title={editingClass ? "Cập nhật thông tin lớp" : "Mở lớp học mới"}
         open={isModalOpen}
         onOk={handleSave}
         onCancel={() => setIsModalOpen(false)}
         maskClosable={false}
-        width={800} // 👈 Tăng kích thước Modal lên 800px (Mặc định là 520px)
-        centered // Căn giữa màn hình
+        width={700}
+        centered
+        okText={editingClass ? "Lưu thay đổi" : "Tạo lớp"}
       >
         <Form form={form} layout="vertical" style={{ marginTop: 24 }}>
-            <div style={{display: 'flex', gap: 24}}>
-                <Form.Item name="code" label="Mã lớp" rules={[{ required: true }]} style={{flex: 1}}>
-                  <Input size="large" placeholder="VD: REACT-K15" />
-                </Form.Item>
-                <Form.Item name="name" label="Tên lớp" rules={[{ required: true }]} style={{flex: 2}}>
-                  <Input size="large" placeholder="VD: ReactJS K15" />
-                </Form.Item>
-            </div>
+            <Row gutter={24}>
+                <Col span={12}>
+                    <Form.Item name="code" label="Mã lớp" rules={[{ required: true, message: 'Nhập mã lớp' }]}>
+                        <Input size="large" placeholder="VD: FE-K15" />
+                    </Form.Item>
+                </Col>
+                <Col span={12}>
+                    <Form.Item name="name" label="Tên lớp học" rules={[{ required: true, message: 'Nhập tên lớp' }]}>
+                        <Input size="large" placeholder="VD: Frontend Master K15" />
+                    </Form.Item>
+                </Col>
+            </Row>
             
-            <div style={{display: 'flex', gap: 24}}>
-                <Form.Item name="status" label="Trạng thái" style={{flex: 1}}>
-                  <Select size="large">
-                    <Option value="Pending">Sắp mở</Option>
-                    <Option value="Active">Đang học</Option>
-                    <Option value="Finished">Kết thúc</Option>
-                  </Select>
-                </Form.Item>
-                
-                <Form.Item name="start_date" label="Ngày bắt đầu" style={{flex: 1}}>
-                  <DatePicker size="large" format="DD/MM/YYYY" style={{width:'100%'}} />
-                </Form.Item>
-                
-                <Form.Item name="end_date" label="Ngày kết thúc" style={{flex: 1}}>
-                  <DatePicker size="large" format="DD/MM/YYYY" style={{width:'100%'}} />
-                </Form.Item>
-            </div>
+            <Row gutter={24}>
+                <Col span={24}>
+                     {/* [FIX] Thêm ô chọn giảng viên */}
+                    <Form.Item name="teacherIds" label="Giảng viên phụ trách">
+                        <Select 
+                            mode="multiple" 
+                            size="large" 
+                            placeholder="Chọn giảng viên..."
+                            filterOption={(input, option) => 
+                                (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
+                            }
+                        >
+                            {teachers.map(t => (
+                                <Option key={t.user_id} value={t.user_id}>
+                                    {t.full_name || t.email} ({t.email})
+                                </Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+                </Col>
+            </Row>
+
+            <Row gutter={24}>
+                <Col span={8}>
+                    <Form.Item name="status" label="Trạng thái">
+                        <Select size="large">
+                            <Option value="Pending">Sắp mở</Option>
+                            <Option value="Active">Đang học</Option>
+                            <Option value="Finished">Kết thúc</Option>
+                        </Select>
+                    </Form.Item>
+                </Col>
+                <Col span={16}>
+                    <Form.Item name="dateRange" label="Thời gian đào tạo (Bắt đầu - Kết thúc)">
+                        <RangePicker size="large" format="DD/MM/YYYY" style={{width:'100%'}} placeholder={['Ngày bắt đầu', 'Ngày kết thúc']} />
+                    </Form.Item>
+                </Col>
+            </Row>
         </Form>
       </Modal>
     </div>

@@ -55,18 +55,12 @@ export default function ClassEssayTab({ courseId, classId, students }) {
     setSelectedEssay(item);
     setLoadingSubs(true);
     try {
-      // 👇 SỬA QUAN TRỌNG: Truyền classId vào API
-      // Lưu ý: Bạn cần đảm bảo hàm ClassApi.getSubmissionsByLessonItem 
-      // hỗ trợ nhận tham số thứ 2 hoặc nhận object params.
-      // Ví dụ gọi API chuẩn sẽ là: 
-      // await http.get('/admin/submissions', { params: { lessonItemId: item.id, classId: classId } })
-      
+      // 👇 SỬA ĐÚNG 1 DÒNG NÀY: Truyền thêm classId
       const res = await ClassApi.getSubmissionsByLessonItem(item.id, classId);
       
       const map = {};
       if (res?.data) {
           res.data.forEach(sub => {
-              // Logic map studentId -> submission
               map[sub.studentId] = sub;
           });
       }
@@ -78,7 +72,6 @@ export default function ClassEssayTab({ courseId, classId, students }) {
     finally { setLoadingSubs(false); }
   };
 
-  // 4. Mở form chấm
   const openGrading = (sub) => {
     setCurrentSub(sub);
     form.setFieldsValue({
@@ -89,20 +82,15 @@ export default function ClassEssayTab({ courseId, classId, students }) {
     setIsGrading(true);
   };
 
-  // 5. Submit điểm
   const handleGrade = async () => {
     try {
         const values = await form.validateFields();
         setSubmittingGrade(true);
-
         const payload = {
           ...values,
           score: values.score !== null && values.score !== undefined ? Number(values.score) : 0
         };
-
         const updated = await ClassApi.gradeSubmission(currentSub.id, payload);
-        
-        // Cập nhật lại UI sau khi chấm
         setSubmissionsMap(prev => ({...prev, [updated.studentId]: updated}));
         message.success("Đã chấm điểm");
         setIsGrading(false);
@@ -113,7 +101,6 @@ export default function ClassEssayTab({ courseId, classId, students }) {
     finally { setSubmittingGrade(false); }
   };
 
-  // Columns
   const columns = [
      { title: 'Học viên', dataIndex: 'full_name', key: 'name' },
      { title: 'Email', dataIndex: 'email', key: 'email', render: t => <Text type="secondary" style={{fontSize: 12}}>{t}</Text> },
@@ -155,30 +142,13 @@ export default function ClassEssayTab({ courseId, classId, students }) {
 
   return (
     <div style={{ display: 'flex', height: '600px', border: '1px solid #f0f0f0', borderRadius: 8 }}>
-      
-      {/* CỘT TRÁI: LIST BÀI TẬP */}
       <div style={{ width: 300, borderRight: '1px solid #f0f0f0', overflowY: 'auto', background: '#fafafa' }}>
-        <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: '#666', borderBottom:'1px solid #eee' }}>
-            DANH SÁCH BÀI TẬP
-        </div>
+        <div style={{ padding: '16px 16px 8px', fontWeight: 600, color: '#666', borderBottom:'1px solid #eee' }}>DANH SÁCH BÀI TẬP</div>
         {essayList.map((group, idx) => (
           <div key={idx}>
-            <div style={{ padding: '8px 16px', background: '#f5f5f5', fontSize: 12, fontWeight: 700, color: '#999' }}>
-              {group.sessionTitle.toUpperCase()}
-            </div>
-            <List
-              dataSource={group.items}
-              renderItem={item => (
-                <div 
-                  onClick={() => handleSelectEssay(item)}
-                  style={{ 
-                    padding: '12px 16px', 
-                    cursor: 'pointer', 
-                    background: selectedEssay?.id === item.id ? '#f6ffed' : 'transparent',
-                    borderRight: selectedEssay?.id === item.id ? '3px solid #52c41a' : 'none',
-                    transition: 'all 0.2s'
-                  }}
-                >
+            <div style={{ padding: '8px 16px', background: '#f5f5f5', fontSize: 12, fontWeight: 700, color: '#999' }}>{group.sessionTitle.toUpperCase()}</div>
+            <List dataSource={group.items} renderItem={item => (
+                <div onClick={() => handleSelectEssay(item)} style={{ padding: '12px 16px', cursor: 'pointer', background: selectedEssay?.id === item.id ? '#f6ffed' : 'transparent', borderRight: selectedEssay?.id === item.id ? '3px solid #52c41a' : 'none', transition: 'all 0.2s' }}>
                   <EditOutlined style={{ marginRight: 8, color: '#52c41a' }} />
                   <Text strong={selectedEssay?.id === item.id}>{item.title}</Text>
                 </div>
@@ -187,8 +157,6 @@ export default function ClassEssayTab({ courseId, classId, students }) {
           </div>
         ))}
       </div>
-
-      {/* CỘT PHẢI: BẢNG CHẤM */}
       <div style={{ flex: 1, padding: 24, overflowY: 'auto', background: '#fff' }}>
         {!selectedEssay ? (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#ccc' }}>
@@ -197,43 +165,16 @@ export default function ClassEssayTab({ courseId, classId, students }) {
           </div>
         ) : (
           <div>
-            <Title level={4} style={{marginTop: 0, marginBottom: 24}}>
-                <EditOutlined style={{color: '#52c41a', marginRight: 10}}/>
-                Chấm bài: {selectedEssay.title}
-            </Title>
-            <Table 
-                dataSource={students} 
-                columns={columns} 
-                rowKey="student_id" 
-                loading={loadingSubs} 
-                pagination={false}
-                bordered
-            />
+            <Title level={4} style={{marginTop: 0, marginBottom: 24}}><EditOutlined style={{color: '#52c41a', marginRight: 10}}/>Chấm bài: {selectedEssay.title}</Title>
+            <Table dataSource={students} columns={columns} rowKey="student_id" loading={loadingSubs} pagination={false} bordered />
           </div>
         )}
       </div>
-
-      {/* MODAL CHẤM ĐIỂM */}
-      <Modal 
-        title="Chấm điểm bài làm" 
-        open={isGrading} 
-        onOk={handleGrade} 
-        onCancel={() => setIsGrading(false)} 
-        confirmLoading={submittingGrade}
-      >
+      <Modal title="Chấm điểm bài làm" open={isGrading} onOk={handleGrade} onCancel={() => setIsGrading(false)} confirmLoading={submittingGrade}>
         <Form form={form} layout="vertical">
-            <Form.Item name="status" label="Kết quả" rules={[{required: true}]}>
-                <Select>
-                    <Select.Option value="approved">Đạt (Approved)</Select.Option>
-                    <Select.Option value="rejected">Chưa đạt (Rejected)</Select.Option>
-                </Select>
-            </Form.Item>
-            <Form.Item name="score" label="Điểm số (0-10)" rules={[{required: true}]}>
-                <InputNumber min={0} max={10} step={0.5} style={{width:'100%'}}/>
-            </Form.Item>
-            <Form.Item name="feedback" label="Nhận xét">
-                <TextArea rows={4} placeholder="Góp ý cho học viên..."/>
-            </Form.Item>
+            <Form.Item name="status" label="Kết quả" rules={[{required: true}]}><Select><Select.Option value="approved">Đạt (Approved)</Select.Option><Select.Option value="rejected">Chưa đạt (Rejected)</Select.Option></Select></Form.Item>
+            <Form.Item name="score" label="Điểm số (0-10)" rules={[{required: true}]}><InputNumber min={0} max={10} step={0.5} style={{width:'100%'}}/></Form.Item>
+            <Form.Item name="feedback" label="Nhận xét"><TextArea rows={4} placeholder="Góp ý cho học viên..."/></Form.Item>
         </Form>
       </Modal>
     </div>

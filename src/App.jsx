@@ -1,5 +1,6 @@
 // src/App.jsx
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { useSelector } from "react-redux"; 
 import { selectUser } from "./redux/authSlice"
 import Header from "./components/Header.jsx";
@@ -16,14 +17,11 @@ import RequireAuth from "./pages/auth/RequireAuth.jsx";
 import SearchPage from "./pages/Search.jsx";
 import EssayManagementPage from "./pages/EssayManagementPage.jsx";
 
-// 🟢 Client Pages
 import TopicsPage from "./pages/TopicsPage.jsx";
 import TopicDetailPage from "./pages/TopicDetailPage.jsx";
-
-// 🟢 Import trang chat AI
 import JapaneseVoiceChat from "./components/JapaneseVoiceChat.jsx";
 
-// ===== ADMIN PAGES =====
+// ADMIN PAGES
 import AdminLayout from "./layouts/AdminLayout.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import CourseManagement from "./pages/admin/CourseManagement.jsx";
@@ -37,15 +35,11 @@ import StudentManager from "./pages/admin/StudentManager.jsx";
 import TeacherManager from "./pages/admin/TeacherManager.jsx";
 import AdminProfile from "./pages/admin/AdminProfile";    
 import AdminSettings from "./pages/admin/AdminSettings";
-
-// 🟢 Admin Topic Management
 import TopicManager from "./pages/admin/TopicManager.jsx";
 import VocabularyManager from "./pages/admin/VocabularyManager.jsx";
-
-// 🟢 (MỚI) Admin Kanji Management
 import KanjiManager from "./pages/admin/KanjiManager.jsx"; 
 
-// ===== TEACHER PAGES & LAYOUT =====
+// TEACHER PAGES
 import TeacherLayout from "./layouts/TeacherLayout.jsx";
 import TeacherDashboard from "./pages/teacher/TeacherDashboard.jsx";
 import TeacherCourseManagement from "./pages/teacher/TeacherCourseManagement.jsx"; 
@@ -53,30 +47,37 @@ import TeacherClassManagement from "./pages/teacher/TeacherClassManagement.jsx";
 import TeacherClassDetail from "./pages/teacher/TeacherClassDetail.jsx";
 import TeacherPostManagement from "./pages/teacher/TeacherPostManagement.jsx";
 
-
 const RoleBasedHome = () => {
   const user = useSelector(selectUser);
-  const roles = user?.roles || []; // Lấy mảng roles từ Redux (đã được chuẩn hóa ở authSlice)
-
-  // Kiểm tra role để điều hướng
-  if (roles.includes("admin")) {
-    return <Navigate to="/admin" replace />;
-  }
-  if (roles.includes("teacher")) {
-    return <Navigate to="/teacher" replace />;
-  }
-
-  // Nếu là student hoặc khách -> Về trang Home bình thường
+  const roles = user?.roles || [];
+  if (roles.includes("admin")) return <Navigate to="/admin" replace />;
+  if (roles.includes("teacher")) return <Navigate to="/teacher" replace />;
   return <Home />;
 };
 
 export default function App() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const user = useSelector(selectUser);
+  const roles = user?.roles || [];
+
   const isAuthPage = location.pathname.startsWith("/login");
   const isAdminDomain = location.pathname.startsWith("/admin");
   const isTeacherDomain = location.pathname.startsWith("/teacher");
+  
+  // 🟢 KHAI BÁO BIẾN NÀY ĐỂ HẾT LỖI
+  const isDashBoardLike = location.pathname.startsWith("/dashboard") || isAdminDomain || isTeacherDomain;
 
-  const isDashBoardLike = isAuthPage || isAdminDomain || isTeacherDomain;
+  useEffect(() => {
+    if (user && !isAuthPage) {
+      if (roles.includes("admin") && !isAdminDomain) {
+        navigate("/admin", { replace: true });
+      } 
+      else if (roles.includes("teacher") && !isTeacherDomain && !isAdminDomain) {
+        navigate("/teacher/dashboard", { replace: true });
+      }
+    }
+  }, [user, roles, location.pathname, navigate]);
 
   const mainMinHeight = isDashBoardLike ? "100vh" : "calc(100vh - 64px - 160px)";
 
@@ -94,63 +95,44 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
 
-          {/* ===== PUBLIC / STUDENT ROUTES ===== */}
           <Route element={<RequireAuth />}>
             <Route path="/" element={<RoleBasedHome />} />
             <Route path="/posts" element={<Posts />} />
             <Route path="/posts/:postId" element={<PostDetail />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/profile" element={<Profile />} />
-            
             <Route path="/class/:classId/lesson/:courseId" element={<LessonPage />} />
             <Route path="/search" element={<SearchPage />} />
-            
-            {/* Route Client: Danh sách & Chi tiết chủ đề */}
             <Route path="/topics" element={<TopicsPage />} />
             <Route path="/topics/:id" element={<TopicDetailPage />} />
-            
-            {/* Route cho trang chat AI */}
             <Route path="/ai-chat" element={<JapaneseVoiceChat />} />
-            
             <Route path="/my-essays" element={<EssayManagementPage />} />
           </Route>
 
-          {/* ===== TEACHER ROUTES ===== */}
           <Route element={<RequireAuth allowedRoles={["teacher", "admin"]} />}>
              <Route path="/teacher/*" element={<TeacherLayout />}>
                 <Route index element={<TeacherDashboard />} />
                 <Route path="dashboard" element={<TeacherDashboard />} />
-                
                 <Route path="classes" element={<TeacherClassManagement />} />
                 <Route path="classes/:classId" element={<TeacherClassDetail />} />
-                
                 <Route path="courses" element={<TeacherCourseManagement />} />
                 <Route path="courses/:courseId/manage" element={<CourseManager />} />
-                
                 <Route path="question-banks" element={<QuizManager />} />
                 <Route path="questions" element={<QuestionManager />} />
-                
                 <Route path="posts" element={<TeacherPostManagement />} />
-                
                 <Route path="profile" element={<AdminProfile />} /> 
                 <Route path="settings" element={<AdminSettings />} />
              </Route>
           </Route>
 
-          {/* ===== ADMIN ROUTES ===== */}
           <Route element={<RequireAuth allowedRoles={["admin"]} />}>
             <Route path="/admin/*" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
               <Route path="courses" element={<CourseManagement />} />
               <Route path="courses/:courseId/manage" element={<CourseManager />} />
-              
-              {/* Quản lý Topics & Vocabulary */}
               <Route path="topics" element={<TopicManager />} />
               <Route path="topics/:topicId/vocab" element={<VocabularyManager />} />
-
-              {/* 🟢 (MỚI) Quản lý Kanji */}
               <Route path="kanji" element={<KanjiManager />} />
-
               <Route path="question-banks" element={<QuizManager />} />
               <Route path="questions" element={<QuestionManager />} />
               <Route path="classes" element={<ClassManagement />} />

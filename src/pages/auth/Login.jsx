@@ -69,18 +69,24 @@ function extractRolesFromPayload(payload) {
 
 /* ── Helper: điều hướng theo role + from ───────── */
 function redirectByRole(navigate, roles, from) {
+  
+  if (roles.includes("admin")) {
+    navigate("/admin", { replace: true });
+    return;
+  }
+
+  if (roles.includes("teacher")) {
+    navigate("/teacher/dashboard", { replace: true });
+    return;
+  }
+
+  
   const safeFrom = from && from !== "/" && from !== "/login" ? from : null;
 
   if (safeFrom) {
     navigate(safeFrom, { replace: true });
-    return;
-  }
-
-  if (roles.includes("admin")) {
-    navigate("/admin", { replace: true });
-  } else if (roles.includes("teacher")) {
-    navigate("/teacher/dashboard", { replace: true });
   } else {
+    
     navigate("/dashboard", { replace: true });
   }
 }

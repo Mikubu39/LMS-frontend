@@ -1,87 +1,130 @@
 // src/pages/teacher/TeacherClassManagement.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { 
-  Table, Input, Tag, message 
+  Table, Input, Card, Typography, 
+  Row, Col, Tabs, Badge, Space, 
+  Tag, Avatar, Tooltip, message 
 } from "antd";
 import { 
-  SearchOutlined, ApartmentOutlined 
+  SearchOutlined, TeamOutlined, 
+  CalendarOutlined, UserOutlined, 
+  ApartmentOutlined 
 } from "@ant-design/icons";
 import moment from "moment";
 import { useNavigate } from "react-router-dom"; 
 
 import { ClassApi } from "@/services/api/classApi";
 
+const { Title, Text } = Typography;
+
 export default function TeacherClassManagement() {
   const navigate = useNavigate();
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(false);
   
+  // State cho bộ lọc giao diện (giống Admin)
+  const [searchText, setSearchText] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+
   // --- LOAD DATA ---
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      // Lưu ý: Nếu backend có API riêng lấy lớp của GV (VD: getMyClasses), hãy dùng API đó.
-      // Ở đây tạm thời dùng getAll giống Admin.
-      const data = await ClassApi.getAll();
-      setClasses(data || []);
-    } catch (error) { message.error("Lỗi tải dữ liệu"); } 
-    finally { setLoading(false); }
+      // FIX LỖI API: Truyền params để tránh lỗi "skip is not a number"
+      const params = { page: 1, limit: 1000 };
+      const response = await ClassApi.getAll(params);
+
+      // Xử lý dữ liệu an toàn
+      const listData = Array.isArray(response) ? response : (response.data || []);
+      setClasses(listData);
+    } catch (error) { 
+      console.error("Fetch Error:", error);
+      message.error("Lỗi tải dữ liệu lớp học"); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   useEffect(() => { fetchAllData(); }, []);
 
-  // --- COLUMNS ---
+  // --- FILTER LOGIC (Giống Admin) ---
+  const filteredData = useMemo(() => {
+    let result = classes || [];
+
+    // 1. Lọc theo Tab trạng thái
+    if (statusFilter !== 'All') {
+      result = result.filter(c => c.status === statusFilter);
+    }
+
+    // 2. Lọc theo ô tìm kiếm
+    if (searchText) {
+      const lower = searchText.toLowerCase();
+      result = result.filter(c => 
+        c.name?.toLowerCase().includes(lower) || 
+        c.code?.toLowerCase().includes(lower)
+      );
+    }
+    return result;
+  }, [classes, statusFilter, searchText]);
+
+  // --- COLUMNS (Giao diện giống Admin) ---
   const columns = [
     {
-      title: 'Mã lớp',
-      dataIndex: 'code',
-      key: 'code',
-      width: 150, 
-      render: text => <b style={{color:'#1890ff'}}>{text}</b>,
-    },
-    {
-      title: 'Tên lớp',
+      title: 'Lớp học',
       dataIndex: 'name',
       key: 'name',
+      width: 280,
       render: (text, record) => (
-        // 🟢 SỬA: Điều hướng sang trang chi tiết của Teacher
-        <a onClick={() => navigate(`/teacher/classes/${record.class_id}`)} style={{fontWeight: 500}}>
-          {text}
-        </a>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+           {/* Link điều hướng sang chi tiết lớp */}
+           <a onClick={() => navigate(`/teacher/classes/${record.class_id}`)} style={{fontWeight: 600, fontSize: 15, color: '#1677ff'}}>
+             {text}
+           </a>
+           <Space size={8} style={{marginTop: 4}}>
+              <Tag color="geekblue">{record.code}</Tag>
+              <Text type="secondary" style={{fontSize: 12}}>
+                <TeamOutlined /> {record.total_students || record.students?.length || 0} HV
+              </Text>
+           </Space>
+        </div>
       ),
     },
     {
-      title: 'Khóa học',
-      dataIndex: 'courses',
-      width: 120,
-      render: (courses) => (
-         <Tag color="geekblue">{courses?.length || 0} khóa</Tag>
-      )
-    },
-    {
-      title: 'Giảng viên',
-      dataIndex: 'teachers',
-      width: 250, 
-      render: (teachers) => (
-         <div style={{display:'flex', flexWrap:'wrap', gap: 4}}>
-            {teachers && teachers.length > 0 ? (
-                teachers.map(t => (
-                    <Tag key={t.user_id}>{t.full_name}</Tag>
-                ))
-            ) : (
-                <span style={{color: '#ccc', fontSize: 12}}>Chưa gán</span>
-            )}
+      title: 'Giảng viên', // Hiển thị Avatar Group thay vì Tag đơn điệu
+      key: 'teachers',
+      width: 200,
+      render: (_, r) => (
+         <div style={{display:'flex', alignItems:'center', gap: 8}}>
+            {Array.isArray(r.teachers) && r.teachers.length > 0 ? (
+                <Avatar.Group maxCount={3} size="small">
+                    {r.teachers.map(t => (
+                        <Tooltip title={t.full_name} key={t.user_id}>
+                            <Avatar 
+                              src={t.avatar} 
+                              style={{backgroundColor: '#87d068'}} 
+                              icon={<UserOutlined />} 
+                            />
+                        </Tooltip>
+                    ))}
+                </Avatar.Group>
+            ) : <span style={{color:'#999', fontSize: 12, fontStyle:'italic'}}>--</span>}
          </div>
       )
     },
     {
-      title: 'Thời gian',
+      title: 'Thời gian đào tạo',
       key: 'time',
-      width: 150,
+      width: 220,
       render: (_, r) => (
         <div style={{fontSize: 13}}>
-          <div>BĐ: {r.start_date ? moment(r.start_date).format("DD/MM/YYYY") : '--'}</div>
-          <div>KT: {r.end_date ? moment(r.end_date).format("DD/MM/YYYY") : '--'}</div>
+           <div style={{display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4}}>
+              <CalendarOutlined style={{color: '#1890ff'}}/> 
+              <span>{r.start_date ? moment(r.start_date).format("DD/MM/YYYY") : '--'}</span>
+           </div>
+           <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
+              <span style={{color: '#888', paddingLeft: 22}}>đến</span>
+              <span>{r.end_date ? moment(r.end_date).format("DD/MM/YYYY") : '--'}</span>
+           </div>
         </div>
       )
     },
@@ -89,36 +132,73 @@ export default function TeacherClassManagement() {
       title: 'Trạng thái',
       dataIndex: 'status',
       align: 'center',
-      width: 120,
+      width: 150,
       render: (status) => {
-        let color = status === 'Active' ? 'green' : status === 'Pending' ? 'orange' : 'red';
-        return <Tag color={color}>{status}</Tag>;
+        // Dùng Badge thay vì Tag để giống Admin
+        let color = status === 'Active' ? 'success' : status === 'Pending' ? 'warning' : 'default';
+        let text = status === 'Active' ? 'Đang dạy' : status === 'Pending' ? 'Sắp mở' : 'Kết thúc';
+        return <Badge status={color} text={text} />;
       }
-    },
-    // ❌ ĐÃ XÓA CỘT THAO TÁC
+    }
+  ];
+
+  // Các Tab trạng thái
+  const tabItems = [
+    { key: 'All', label: 'Tất cả' },
+    { key: 'Active', label: 'Đang dạy' },
+    { key: 'Pending', label: 'Sắp mở' },
+    { key: 'Finished', label: 'Đã kết thúc' },
   ];
 
   return (
-    <div style={{ padding: 24, background: '#f0f2f5', minHeight: '100vh' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h2 style={{ margin: 0 }}><ApartmentOutlined /> Lớp học của tôi</h2>
-        {/* ❌ ĐÃ XÓA NÚT TẠO LỚP */}
+    <div style={{ padding: 24, background: '#f5f7fa', minHeight: '100vh' }}>
+      
+      {/* HEADER: Title & Subtitle */}
+      <div style={{ marginBottom: 24 }}>
+         <Row justify="space-between" align="middle">
+            <Col>
+              <Title level={2} style={{ margin: 0 }}>
+                <ApartmentOutlined style={{marginRight: 10}}/> 
+                Lớp học của tôi
+              </Title>
+              <Text type="secondary">Danh sách các lớp bạn đang phụ trách giảng dạy</Text>
+            </Col>
+            {/* Không có nút "Tạo lớp" vì Teacher chỉ được xem */}
+         </Row>
       </div>
 
-      <div style={{ background: 'white', padding: 24, borderRadius: 8 }}>
-        <div style={{ marginBottom: 16, maxWidth: 400 }}>
-          <Input prefix={<SearchOutlined />} placeholder="Tìm kiếm..." allowClear />
+      {/* MAIN CONTENT: Card + Tabs + Table */}
+      <Card bordered={false} style={{ borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+        
+        {/* Tabs lọc trạng thái */}
+        <Tabs 
+          activeKey={statusFilter} 
+          onChange={setStatusFilter} 
+          items={tabItems} 
+          style={{ marginBottom: 16 }} 
+        />
+
+        {/* Thanh tìm kiếm */}
+        <div style={{ marginBottom: 20 }}>
+          <Input 
+             prefix={<SearchOutlined style={{color:'#bfbfbf'}} />} 
+             placeholder="Tìm kiếm theo Tên hoặc Mã lớp..." 
+             size="large"
+             allowClear
+             style={{ maxWidth: 400 }}
+             onChange={(e) => setSearchText(e.target.value)}
+          />
         </div>
+
+        {/* Bảng dữ liệu */}
         <Table 
             columns={columns} 
-            dataSource={classes} 
+            dataSource={filteredData} 
             rowKey="class_id" 
             loading={loading} 
-            pagination={{ pageSize: 8 }} 
+            pagination={{ pageSize: 8, showTotal: (total) => `Tổng ${total} lớp` }} 
         />
-      </div>
-      
-      {/* ❌ ĐÃ XÓA MODAL */}
+      </Card>
     </div>
   );
 }

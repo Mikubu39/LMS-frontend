@@ -351,7 +351,7 @@ export default function LessonPage() {
     if (currentItem.type === "Essay") {
       const fetchSubmission = async () => {
         try {
-          const data = await SubmissionApi.getSubmissionByLessonItemId(currentItem.id);
+          const data = await SubmissionApi.getSubmissionByLessonItemId(currentItem.id, classId);
           if (data) {
             setCurrentSubmission(data);
             setGitLink(data.gitLink || "");
@@ -433,6 +433,7 @@ export default function LessonPage() {
 
     const payload = {
       lessonItemId: currentItem.id,
+      classId: classId,
       gitLink: gitLink.trim(),
       description: description.trim() || undefined,
     };

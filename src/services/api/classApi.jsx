@@ -1,8 +1,8 @@
 import http from "@/services/http";
 
 export const ClassApi = {
-  getAll: async () => {
-    const res = await http.get("/classes");
+  getAll: async (params) => {
+    const res = await http.get("/classes", { params }); 
     return res.data;
   },
   
