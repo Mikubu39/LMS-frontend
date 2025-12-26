@@ -67,7 +67,7 @@ export default function Home() {
           .then((res) => setUnreadCount(res.count))
           .catch((err) => console.error(err));
 
-        const socket = io('http://localhost:3000', { query: { userId: user.user_id } });
+        const socket = io(import.meta.env.VITE_API_BASE_URL, { query: { userId: user.user_id } });
         socket.on('receiveMessage', (newMsg) => {
           if (newMsg.sender.user_id !== user.user_id) {
              if (!chatOpenRef.current) {
