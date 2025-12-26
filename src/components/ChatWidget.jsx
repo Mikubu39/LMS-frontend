@@ -10,7 +10,7 @@ import { ChatApi } from '@/services/api/chatApi';
 import { UploadApi } from '@/services/api/uploadApi'; 
 import "@/css/messenger.css"; 
 
-const socket = io('http://localhost:3000'); 
+const socket = io(import.meta.env.VITE_API_BASE_URL); 
 
 export default function ChatWidget({ open, onClose, currentUser, onRead }) {
   const [messages, setMessages] = useState([]);
