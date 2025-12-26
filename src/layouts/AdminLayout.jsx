@@ -57,7 +57,7 @@ export default function AdminLayout() {
           .then((res) => setUnreadCount(res.count))
           .catch((err) => console.error(err));
 
-        const socket = io('http://localhost:3000', {
+        const  = io(import.meta.env.VITE_API_BASE_URL, {
             query: { userId: currentUser.user_id }
         });
 
