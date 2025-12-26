@@ -10,7 +10,7 @@ import { ChatApi } from '@/services/api/chatApi';
 import { UploadApi } from '@/services/api/uploadApi'; 
 import "@/css/messenger.css"; 
 
-const socket = io(import.meta.env.VITE_API_BASE_URL); 
+const socket = io(https://lms-backend-production-0887.up.railway.app); 
 
 export default function ChatWidget({ open, onClose, currentUser, onRead }) {
   const [messages, setMessages] = useState([]);
